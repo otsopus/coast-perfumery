@@ -192,7 +192,16 @@
   .compare-notes li+li{margin-top:4px}
   .compare-meter{display:block;width:100%;height:12px;accent-color:var(--blue)}
   .compare-meter::-webkit-meter-optimum-value,.compare-meter::-webkit-meter-suboptimum-value,.compare-meter::-webkit-meter-even-less-good-value{background:var(--blue)}
-  @media(max-width:600px){.masthead .wrap{flex-wrap:wrap;padding-block:10px}.masthead nav{gap:12px}}
+  .compare-mobile{display:none}
+  @media(max-width:920px){
+    .compare-scroll{display:none}
+    .compare-mobile{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+    .compare-mobile .compare-card{min-width:0}
+    .compare-mobile dl{margin:0;padding:0 12px 12px}
+    .compare-mobile dl div{padding:8px 0;border-top:1px solid var(--line);font-size:.875rem}
+    .compare-mobile dt{color:var(--blue);font-weight:650}
+    .compare-mobile dd{margin:3px 0 0}
+  }
   @media(max-width:650px){
     .landing-hero .wrap{grid-template-columns:1fr}
     .landing-hero .intro{padding-bottom:0}
@@ -203,6 +212,27 @@
   @media(max-width:1050px){.wrap{width:calc(100% - 56px)}.layout{grid-template-columns:155px minmax(0,1fr);gap:18px}.grid{gap:12px}}
   @media(max-width:810px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.hero .wrap{min-height:306px}}
   @media(max-width:600px){.wrap{width:calc(100% - 32px)}.masthead .wrap{min-height:64px}.brand img{width:33px}.brand strong{font-size:1.1rem}.brand small{font-size:.65rem}.hero .wrap{grid-template-columns:1fr .65fr;min-height:252px}.intro p:last-child{font-size:.9rem}h1{font-size:clamp(2.9rem,11vw,4.2rem)}.hero-art .bottle{font-size:clamp(9px,2.55vw,15px)}.layout{display:block}.filters{display:grid;grid-template-columns:1fr 1fr;gap:0 12px;margin-bottom:9px}.filter-heading{grid-column:1/-1;margin-bottom:7px}.grid{gap:10px}.card-body{padding:10px}.card-meta{flex-wrap:wrap}}
+  @media(max-width:600px){
+    .masthead .wrap{display:grid;gap:4px;padding-block:10px 0}
+    .masthead nav{gap:clamp(16px,6vw,32px);white-space:normal}
+    .masthead nav a{display:flex;align-items:center;min-height:44px;padding:0}
+    .landing-hero .wrap{grid-template-columns:minmax(0,1fr)}
+    #catalog-view .hero .wrap{grid-template-columns:minmax(0,1fr) minmax(0,.65fr)}
+    .landing-hero .featured-stage .bottle{font-size:16px}
+    .intro p{margin-bottom:0}
+    .catalog-head{flex-wrap:wrap;gap:4px 12px}
+    #count{white-space:nowrap}
+    .filters{grid-template-columns:repeat(2,minmax(0,1fr))}
+    fieldset{min-inline-size:0}
+    .check,.reset,.tags button,.compare-options label,.compare-size select{min-height:44px}
+    .sizes{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .sizes button{min-height:44px}
+    .detail-panel dl div{grid-template-columns:minmax(0,5.5rem) minmax(0,1fr)}
+  }
+  @media(max-width:360px){
+    .detail-prices{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .compare-mobile .compare-card a{overflow-wrap:anywhere}
+  }
 </style>
 </head>
 <body id="top">
@@ -611,22 +641,30 @@
         return `<meter class="compare-meter" min="0" max="100" value="${score}" aria-label="Scent match for ${perfume.name}"></meter><span>${score}%</span>`;
       }]
     ];
+    const bottleHeader = perfume => `
+      <div class="stage" aria-hidden="true"><div class="bottle"><span class="bottle-label">${perfume.house}</span></div></div>
+      <a href="${productUrl(perfume)}">${perfume.name}<small>${perfume.house} · ${perfume.concentration}</small></a>`;
     compareResults.innerHTML = `
       <div class="compare-scroll" role="region" aria-label="Side-by-side fragrance comparison" tabindex="0">
         <table class="compare-table" style="width:${110 + chosen.length * 175 + (chosen.length + 2) * 8}px">
           <caption class="visually-hidden">Fragrance comparison at ${size} ml</caption>
           <thead><tr><th scope="col"><span class="visually-hidden">Attribute</span></th>
             ${chosen.map(perfume => `
-              <th scope="col"><div class="compare-card">
-                <div class="stage" aria-hidden="true"><div class="bottle"><span class="bottle-label">${perfume.house}</span></div></div>
-                <a href="${productUrl(perfume)}">${perfume.name}<small>${perfume.house} · ${perfume.concentration}</small></a>
-              </div></th>`).join('')}
+              <th scope="col"><div class="compare-card">${bottleHeader(perfume)}</div></th>`).join('')}
           </tr></thead>
           <tbody>${rows.map(([label, cell]) => `<tr><th scope="row">${label}</th>${chosen.map(perfume =>
             `<td>${cell(perfume)}</td>`).join('')}</tr>`).join('')}</tbody>
         </table>
+      </div>
+      <div class="compare-mobile">
+        ${chosen.map(perfume => `<article class="compare-card">
+          ${bottleHeader(perfume)}
+          <dl>${rows.map(([label, cell]) => `<div><dt>${label}</dt><dd>${cell(perfume)}</dd></div>`).join('')}</dl>
+        </article>`).join('')}
       </div>`;
-    compareResults.querySelectorAll('.compare-card').forEach((card, index) => applyBottleColors(card, chosen[index]));
+    for (const layout of compareResults.children) {
+      layout.querySelectorAll('.compare-card').forEach((card, index) => applyBottleColors(card, chosen[index]));
+    }
   }
 
   function render() {
