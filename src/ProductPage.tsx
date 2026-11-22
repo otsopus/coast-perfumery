@@ -24,6 +24,7 @@ export function ProductPage({ perfume, lines, limits, status, onRetry, onAdd }: 
   const [imageIndex, setImageIndex] = useState(0)
   const [feedback, setFeedback] = useState('')
   const variant = perfume.variants.find(({ id }) => id === variantId) ?? first
+  const description = variant.description?.trim() || perfume.description.trim()
   const images = variant.images?.length ? variant.images : [perfume.image, ...(perfume.gallery ?? [])]
   const availableFor = (sizeId: string) => additionalQuantity(limits, lines, { perfumeId: perfume.id, variantId: variant.id, sizeId })
   const requestedSize = variant.sizes.find(({ id }) => id === sizeId)
@@ -54,7 +55,7 @@ export function ProductPage({ perfume, lines, limits, status, onRetry, onAdd }: 
         <section className="product-info" aria-labelledby="product-title">
           <p className="eyebrow">{perfume.brand}</p>
           <h1 id="product-title">{perfume.name}</h1>
-          <p className="description">{variant.description || perfume.description}</p>
+          {description && <p className="description">{description}</p>}
           <fieldset className="option-group">
             <legend>Concentration</legend>
             <div className="flex flex-wrap gap-2">{perfume.variants.map((choice) => (

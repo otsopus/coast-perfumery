@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import type { FormEvent, ReactNode } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { AdminPage } from './AdminPage'
+import { RequiredFieldsHint, RequiredLabel } from './FormLabels'
 import { useNavigate } from './navigation'
 import { loadStaffCatalog } from './staffCatalog'
 import type { StaffCatalogData } from './staffCatalog'
@@ -42,8 +43,9 @@ function StaffSignIn() {
   return <StaffPanel>
     <h1 className="page-title">Staff sign-in</h1>
     <form className="grid gap-4" onSubmit={signIn}>
-      <label className="field">Email<input type="email" autoComplete="username" required disabled={busy} value={email} onChange={(event) => setEmail(event.target.value)} /></label>
-      <label className="field">Password<input type="password" autoComplete="current-password" required disabled={busy} value={password} onChange={(event) => setPassword(event.target.value)} /></label>
+      <RequiredFieldsHint />
+      <label className="field"><RequiredLabel>Email</RequiredLabel><input type="email" autoComplete="username" required disabled={busy} value={email} onChange={(event) => setEmail(event.target.value)} /></label>
+      <label className="field"><RequiredLabel>Password</RequiredLabel><input type="password" autoComplete="current-password" required disabled={busy} value={password} onChange={(event) => setPassword(event.target.value)} /></label>
       {error && <p className="field-error" role="alert">{error}</p>}
       <button className="primary-button" type="submit" disabled={busy}>{busy ? 'Signing in…' : 'Sign in'}</button>
     </form>

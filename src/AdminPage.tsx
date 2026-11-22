@@ -3,6 +3,7 @@ import type { FormEvent } from 'react'
 import { Boxes, ClipboardList, FlaskConical, Plus, Search } from 'lucide-react'
 import { catalogImageUrl, formatPrice, isOrderable, lowestPrice } from './catalog'
 import { AdminEditor } from './AdminEditor'
+import { RequiredFieldsHint, RequiredLabel } from './FormLabels'
 import { Modal } from './Modal'
 import { adjustStaffStock, deleteStaffListing, saveStaffListing, setStaffAvailability } from './staffCatalog'
 import type { StaffCatalogData, StockSelection } from './staffCatalog'
@@ -34,7 +35,8 @@ function StockDialog({ selection, busy, saveError, onClose, onSave }: {
     <form className="dialog-pad" onSubmit={save}>
       <h2 id="stock-title">{deduct ? 'Deduct stock' : 'Correct stock count'}</h2>
       <p>{perfume.name} · {variant.concentration} · {variant.remainingMl} mL recorded</p>
-      <label className="field">{deduct ? 'Volume to deduct (mL)' : 'New remaining volume (mL)'}
+      <RequiredFieldsHint />
+      <label className="field"><RequiredLabel>{deduct ? 'Volume to deduct (mL)' : 'New remaining volume (mL)'}</RequiredLabel>
         <input value={value} required disabled={busy} type="number" inputMode="decimal" min={deduct ? '.01' : '0'} max="999999.99" step=".01" onChange={(event) => { setValue(event.target.value); setError('') }} />
       </label>
       {(error || saveError) && <p className="field-error" role="alert">{error || saveError}</p>}
