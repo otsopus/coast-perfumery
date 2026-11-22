@@ -41,7 +41,7 @@ export function ProductPage({ perfume, catalog, lines, onAdd }: {
       <div className="product-page">
         <div>
           <div className="product-visual">
-            <img key={images[imageIndex]} src={images[imageIndex] ?? images[0]} alt={`${perfume.name} sample fragrance bottle`} />
+            <img key={images[imageIndex]} src={images[imageIndex] ?? images[0]} alt={`${perfume.name} fragrance bottle`} />
             <span className="profile-label">{perfume.profile}</span>
           </div>
           {images.length > 1 && <div className="thumbnails">

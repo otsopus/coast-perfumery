@@ -28,7 +28,7 @@ export function makeOrder(fields: CheckoutFields, rows: ReviewedLine[]): Order {
 
 export function orderText(order: Order) {
   return [
-    'Coast Perfumery Manila · Sample order request', '',
+    'Coast Perfumery Manila · Order request', '',
     ...order.items, '',
     `Subtotal: ${formatPrice(order.subtotal)}`, `Shipping: ${pending}`, `Final total: ${pending}`, '',
     ...order.details.map(({ label, value }) => `${label}: ${value}`),
@@ -66,7 +66,7 @@ export async function downloadOrder(order: Order) {
   if (!context) throw new Error('Image export is unavailable.')
   const blocks = [
     { text: 'COAST PERFUMERY MANILA', font: 'bold 20px Arial', color: '#145a62', gap: 12 },
-    { text: 'Sample order request', font: '38px Georgia', color: '#142f36', gap: 22 },
+    { text: 'Order request', font: '38px Georgia', color: '#142f36', gap: 22 },
     { text: 'DECANTS', font: 'bold 19px Arial', color: '#145a62', gap: 9 },
     ...order.items.map((text) => ({ text, font: '22px Arial', color: '#142f36', gap: 10 })),
     { text: `Subtotal: ${formatPrice(order.subtotal)}\nShipping: ${pending}\nFinal total: ${pending}`, font: 'bold 22px Arial', color: '#145a62', gap: 22 },
@@ -96,7 +96,7 @@ export async function downloadOrder(order: Order) {
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
   link.href = url
-  link.download = 'coast-sample-order.png'
+  link.download = 'coast-order-request.png'
   document.body.append(link)
   link.click()
   link.remove()

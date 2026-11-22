@@ -47,7 +47,14 @@ const sampleImageAssets = new Map([
   ['citrus', citrus], ['floral', floral], ['fresh', fresh], ['woody', woody],
 ])
 
-export const catalogImageUrl = (image: string) => sampleImageAssets.get(image) ?? image
+export const catalogPhotoBucket = 'coast-catalog-uploads'
+
+export function catalogImageUrl(image: string) {
+  if (!image.startsWith('storage:')) return sampleImageAssets.get(image) ?? image
+  const path = image.slice(8).split('/').map(encodeURIComponent).join('/')
+  const projectUrl = import.meta.env.VITE_SUPABASE_URL?.trim().replace(/\/+$/, '')
+  return `${projectUrl}/storage/v1/object/public/${catalogPhotoBucket}/${path}`
+}
 
 function variant(concentration: Variant['concentration'], notes: Notes, prices: number[], remainingMl = 24): Variant {
   return {
@@ -120,8 +127,8 @@ export function startingPrice(variants: StorefrontVariant[]) {
 }
 
 export const samplePhotos = [
-  { name: 'Blue glass', image: fresh }, { name: 'Warm stone', image: citrus },
-  { name: 'Soft blush', image: floral }, { name: 'Amber shadow', image: woody },
+  { name: 'Blue glass', image: 'fresh' }, { name: 'Warm stone', image: 'citrus' },
+  { name: 'Soft blush', image: 'floral' }, { name: 'Amber shadow', image: 'woody' },
 ]
 
 export const lowestPrice = (variants: Perfume['variants']) => Math.min(

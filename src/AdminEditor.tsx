@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { FormEvent, ReactNode } from 'react'
 import { ImagePlus, Plus, Trash2 } from 'lucide-react'
-import { concentrations, defaultOccasions, effectiveNotes, genders, profiles, samplePhotos } from './catalog'
+import { catalogImageUrl, concentrations, defaultOccasions, effectiveNotes, genders, profiles, samplePhotos } from './catalog'
 import type { Notes, Perfume, Variant } from './catalog'
+import type { StaffListing, StaffListingDraft } from './supabase'
 
 type SizeDraft = { id: string; volume: string; price: string }
 type VariantDraft = {
@@ -15,19 +16,12 @@ const noteLabels = ['Top notes', 'Middle notes', 'Base notes']
 const splitTags = (value: string) => [...new Map(value.split(',').map((part) => part.trim()).filter(Boolean).map((tag) => [tag.toLowerCase(), tag])).values()]
 const toNotes = (values: string[]): Notes => [splitTags(values[0]), splitTags(values[1]), splitTags(values[2])]
 
-function readPhoto(file: File) {
-  return new Promise<string>((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => resolve(String(reader.result))
-    reader.onerror = reject
-    reader.readAsDataURL(file)
-  })
-}
-
-function PhotoEditor({ label, images, onChange }: { label: string; images: string[]; onChange: (images: string[]) => void }) {
+function PhotoEditor({ label, images, onChange, onStage }: {
+  label: string; images: string[]; onChange: (images: string[]) => void; onStage: (file: File) => string
+}) {
   const [error, setError] = useState('')
 
-  async function upload(files: FileList | null) {
+  function selectPhotos(files: FileList | null) {
     if (!files?.length) return
     const selected = Array.from(files)
     if (selected.some((file) => !['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 4 * 1024 * 1024)) {
@@ -38,12 +32,8 @@ function PhotoEditor({ label, images, onChange }: { label: string; images: strin
       setError('Use up to six photos.')
       return
     }
-    try {
-      onChange([...images, ...await Promise.all(selected.map(readPhoto))])
-      setError('')
-    } catch {
-      setError('A photo could not be loaded. Try uploading it again.')
-    }
+    onChange([...images, ...selected.map(onStage)])
+    setError('')
   }
 
   return (
@@ -51,7 +41,7 @@ function PhotoEditor({ label, images, onChange }: { label: string; images: strin
       <legend>{label}</legend>
       {images.length > 0 && <div className="admin-thumbnails">
         {images.map((image, index) => <div className="admin-photo" key={index}>
-          <img src={image} alt={`Photo ${index + 1}`} />
+          <img src={catalogImageUrl(image)} alt={`Photo ${index + 1}`} />
           {index === 0 ? <small>Cover photo</small> : <button className="text-button" type="button" onClick={() => onChange([image, ...images.filter((_, i) => i !== index)])}>Make cover</button>}
           <button className="icon-button" type="button" aria-label={`Remove photo ${index + 1} from ${label}`} onClick={() => onChange(images.filter((_, i) => i !== index))}><Trash2 size={14} /></button>
         </div>)}
@@ -59,7 +49,8 @@ function PhotoEditor({ label, images, onChange }: { label: string; images: strin
       <div className="photo-controls">
         <label className="file-picker secondary-button"><ImagePlus size={17} /> Upload photos
           <input type="file" className="sr-only" aria-label={`Upload ${label.toLowerCase()}`} accept="image/jpeg,image/png,image/webp" multiple onChange={(event) => {
-            void upload(event.target.files); event.target.value = ''
+            selectPhotos(event.target.files)
+            event.target.value = ''
           }} />
         </label>
         <label className="field">
@@ -101,8 +92,9 @@ function newVariant(concentration: Variant['concentration'] = 'EDP'): VariantDra
   return { id: nextId(), concentration, available: true, stock: '0', description: '', notes: ['', '', ''], images: [], sizes: [{ id: nextId(), volume: '2', price: '' }] }
 }
 
-export function AdminEditor({ perfume, catalog, onSave, onCancel }: {
-  perfume?: Perfume; catalog: Perfume[]; onSave: (perfume: Perfume) => void; onCancel: () => void
+export function AdminEditor({ perfume, catalog, busy, saveError, onSave, onCancel }: {
+  perfume?: StaffListing; catalog: Perfume[]; busy: boolean; saveError: string
+  onSave: (perfume: StaffListingDraft, files: ReadonlyMap<string, File>) => void; onCancel: () => void
 }) {
   const [name, setName] = useState(perfume?.name ?? '')
   const [brand, setBrand] = useState(perfume?.brand ?? '')
@@ -110,6 +102,7 @@ export function AdminEditor({ perfume, catalog, onSave, onCancel }: {
   const [profile, setProfile] = useState<Perfume['profile']>(perfume?.profile ?? 'Fresh')
   const [gender, setGender] = useState<Perfume['gender']>(perfume?.gender ?? 'Unisex')
   const [available, setAvailable] = useState(perfume?.available ?? true)
+  const [published, setPublished] = useState(perfume?.published ?? true)
   const [notes, setNotes] = useState(() => perfume?.notes?.map((group) => group.join(', ')) ?? ['', '', ''])
   const [occasions, setOccasions] = useState(perfume?.occasions.join(', ') ?? '')
   const [images, setImages] = useState(() => perfume ? [perfume.image, ...(perfume.gallery ?? [])] : [])
@@ -119,6 +112,20 @@ export function AdminEditor({ perfume, catalog, onSave, onCancel }: {
     images: variant.images ?? [], sizes: variant.sizes.map((size) => ({ id: size.id, volume: String(size.ml), price: String(size.centavos / 100) })),
   })) ?? [newVariant()])
   const [error, setError] = useState('')
+  const files = useRef(new Map<string, File>())
+  useEffect(() => {
+    const previews = files.current
+    return () => {
+      for (const url of previews.keys()) URL.revokeObjectURL(url)
+      previews.clear()
+    }
+  }, [])
+
+  function stagePhoto(file: File) {
+    const url = URL.createObjectURL(file)
+    files.current.set(url, file)
+    return url
+  }
   const noteSuggestions = [...new Set(catalog.flatMap((item) => item.variants.flatMap((variant) => effectiveNotes(item, variant).flat())))].sort()
   const occasionSuggestions = [...new Set([...defaultOccasions, ...catalog.flatMap((item) => item.occasions)])].sort()
   const freeConcentration = concentrations.find((concentration) => !variants.some((variant) => variant.concentration === concentration))
@@ -129,6 +136,7 @@ export function AdminEditor({ perfume, catalog, onSave, onCancel }: {
 
   function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    if (busy) return
     const cleanedName = name.trim()
     const cleanedBrand = brand.trim()
     if (!cleanedName || !cleanedBrand || !description.trim() || !images.length) {
@@ -142,10 +150,10 @@ export function AdminEditor({ perfume, catalog, onSave, onCancel }: {
     for (const variant of variants) {
       const stock = Number(variant.stock)
       const volumes = variant.sizes.map(({ volume }) => Number(volume))
-      if (!variant.stock.trim() || !Number.isSafeInteger(Math.round(stock * 100)) || stock < 0 || !variant.sizes.length || new Set(volumes).size !== volumes.length
+      if (!/^\d+(?:\.\d{1,2})?$/.test(variant.stock) || stock > 999999.99 || !variant.sizes.length || new Set(volumes).size !== volumes.length
         || variant.sizes.some(({ volume, price }) => !/^\d+(?:\.\d{1,2})?$/.test(volume) || Number(volume) <= 0
-          || !Number.isSafeInteger(Math.round(Number(volume) * 100))
-          || !/^\d+(?:\.\d{1,2})?$/.test(price) || Number(price) <= 0 || !Number.isSafeInteger(Math.round(Number(price) * 100)))) {
+          || Number(volume) > 999999.99
+          || !/^\d+(?:\.\d{1,2})?$/.test(price) || Number(price) <= 0 || Math.round(Number(price) * 100) > 2147483647)) {
         setError(`Check ${variant.concentration}. Enter a nonnegative stock count and unique, positive sizes with prices of up to two decimal places.`)
         return
       }
@@ -153,13 +161,14 @@ export function AdminEditor({ perfume, catalog, onSave, onCancel }: {
     const baseSlug = cleanedName.normalize('NFKD').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'perfume'
     let id = perfume?.id ?? baseSlug
     for (let suffix = 2; !perfume && catalog.some((item) => item.id === id); suffix++) id = `${baseSlug}-${suffix}`
+    setError('')
     onSave({
-      id, name: cleanedName, brand: cleanedBrand, description: description.trim(), profile, gender, available,
+      id, name: cleanedName, brand: cleanedBrand, description: description.trim(), profile, gender, available, published,
       image: images[0], gallery: images.slice(1), notes: toNotes(notes), occasions: splitTags(occasions),
       variants: variants.map((variant) => {
         const original = perfume?.variants.find(({ id }) => id === variant.id)
         return {
-          id: original && original.concentration !== variant.concentration ? nextId() : variant.id,
+          id: variant.id,
           concentration: variant.concentration, available: variant.available, remainingMl: Number(variant.stock),
           description: variant.description.trim() || undefined, notes: variant.notes.some((value) => value.trim()) ? toNotes(variant.notes) : undefined,
           images: variant.images.length ? variant.images : undefined,
@@ -170,10 +179,11 @@ export function AdminEditor({ perfume, catalog, onSave, onCancel }: {
           }).sort((a, b) => a.ml - b.ml),
         }
       }),
-    })
+    }, files.current)
   }
 
   return <form className="admin-editor" onSubmit={save}>
+    <div className="contents" inert={busy}>
     <EditorSection title="Listing details">
       <div className="form-grid">
         <label className="field">Perfume name<input required value={name} maxLength={80} onChange={(event) => setName(event.target.value)} /></label>
@@ -183,9 +193,10 @@ export function AdminEditor({ perfume, catalog, onSave, onCancel }: {
         <label className="field form-wide">Description<textarea rows={3} value={description} required maxLength={1500} onChange={(event) => setDescription(event.target.value)} /></label>
       </div>
       <label className="switch-label"><input type="checkbox" checked={available} onChange={(event) => setAvailable(event.target.checked)} /> Make listing orderable</label>
+      {perfume && <label className="switch-label"><input type="checkbox" checked={published} onChange={(event) => setPublished(event.target.checked)} /> Show on the storefront</label>}
     </EditorSection>
     <EditorSection title="Shared photos and notes">
-      <PhotoEditor label="Listing photos" images={images} onChange={setImages} />
+      <PhotoEditor label="Listing photos" images={images} onChange={setImages} onStage={stagePhoto} />
       <TagField label="Occasions" value={occasions} onChange={setOccasions} suggestions={occasionSuggestions} />
       {notes.map((value, index) => <TagField key={index} label={noteLabels[index]} value={value} suggestions={noteSuggestions} onChange={(change) => setNotes(notes.map((current, i) => i === index ? change : current))} />)}
     </EditorSection>
@@ -193,7 +204,7 @@ export function AdminEditor({ perfume, catalog, onSave, onCancel }: {
       {variants.map((variant) => <fieldset className="variant-editor" key={variant.id}>
         <legend>{variant.concentration} variant</legend>
         <div className="form-grid">
-          <label className="field">Concentration<select value={variant.concentration} onChange={(event) => patchVariant(variant.id, { concentration: event.target.value as Variant['concentration'] })}>
+          <label className="field">Concentration<select value={variant.concentration} disabled={perfume?.variants.some(({ id }) => id === variant.id)} onChange={(event) => patchVariant(variant.id, { concentration: event.target.value as Variant['concentration'] })}>
             {concentrations.map((value) => <option key={value} disabled={variants.some((other) => other.id !== variant.id && other.concentration === value)}>{value}</option>)}
           </select></label>
           {perfume?.variants.some(({ id }) => id === variant.id)
@@ -212,17 +223,18 @@ export function AdminEditor({ perfume, catalog, onSave, onCancel }: {
         <details className="editor-overrides">
           <summary>Concentration-specific details</summary>
           <label className="field">Description override<textarea value={variant.description} rows={2} maxLength={1500} onChange={(event) => patchVariant(variant.id, { description: event.target.value })} /></label>
-          <PhotoEditor label={`${variant.concentration} photos`} images={variant.images} onChange={(photos) => patchVariant(variant.id, { images: photos })} />
+          <PhotoEditor label={`${variant.concentration} photos`} images={variant.images} onChange={(photos) => patchVariant(variant.id, { images: photos })} onStage={stagePhoto} />
           {variant.notes.map((value, index) => <TagField key={index} label={`${variant.concentration} ${noteLabels[index].toLowerCase()}`} value={value} suggestions={noteSuggestions} onChange={(change) => patchVariant(variant.id, { notes: variant.notes.map((current, i) => i === index ? change : current) })} />)}
         </details>
         {variants.length > 1 && <button type="button" className="danger-text" onClick={() => setVariants(variants.filter(({ id }) => id !== variant.id))}>Remove {variant.concentration} variant</button>}
       </fieldset>)}
       {freeConcentration && <button className="secondary-button" type="button" onClick={() => setVariants([...variants, newVariant(freeConcentration)])}><Plus size={16} /> Add concentration</button>}
     </EditorSection>
-    {error && <p className="notice field-error" role="alert">{error}</p>}
+    </div>
+    {(error || saveError) && <p className="notice field-error" role="alert">{error || saveError}</p>}
     <div className="editor-actions">
-      <button type="button" className="secondary-button" onClick={onCancel}>Cancel</button>
-      <button type="submit" className="primary-button">{perfume ? 'Save listing' : 'Publish sample listing'}</button>
+      <button type="button" className="secondary-button" disabled={busy} onClick={onCancel}>Cancel</button>
+      <button type="submit" className="primary-button" disabled={busy}>{busy ? 'Saving…' : perfume ? 'Save listing' : 'Publish listing'}</button>
     </div>
   </form>
 }

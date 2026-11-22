@@ -23,15 +23,16 @@ function matchingVariants(perfume: StorefrontPerfume, params: URLSearchParams) {
   ))
 }
 
-function PerfumeCard({ perfume, variants }: {
+function PerfumeCard({ perfume, variants, orderable, price }: {
   perfume: StorefrontPerfume
   variants: StorefrontPerfume['variants']
+  orderable: StorefrontPerfume['variants']
+  price: number
 }) {
-  const orderable = variants.filter((variant) => isOrderable(perfume, variant))
   return (
-    <article className="perfume-card">
+    <article className={orderable.length ? 'perfume-card' : 'perfume-card perfume-card-unavailable'}>
       <div className="card-photo">
-        <img src={perfume.image} alt={`${perfume.name} bottle illustration`} width="570" height="570" loading="lazy" />
+        <img src={perfume.image} alt={`${perfume.name} bottle`} width="570" height="570" loading="lazy" />
         <span className="profile-label">{perfume.profile}</span>
       </div>
       <div className="card-copy">
@@ -39,7 +40,7 @@ function PerfumeCard({ perfume, variants }: {
         <h3>{perfume.name}</h3>
         <p className="card-concentration">{variants.map(({ concentration }) => concentration).join(' · ')}</p>
         <div className="card-bottom">
-          <span>{orderable.length ? <>From <strong>{formatPrice(startingPrice(orderable))}</strong></> : 'Unavailable'}</span>
+          <span>{orderable.length ? <>From <strong>{formatPrice(price)}</strong></> : 'Unavailable'}</span>
           <RouteLink to={`/perfumes/${perfume.id}?concentration=${encodeURIComponent((orderable[0] ?? variants[0]).concentration)}`} className="view-label" aria-label={`View details for ${perfume.name}`}>View details</RouteLink>
         </div>
       </div>
@@ -55,6 +56,7 @@ export function CatalogHome({ catalog, status, onRetry }: {
   const [params, setParams] = useState(() => new URLSearchParams(window.location.search))
   const [filtersOpen, setFiltersOpen] = useState(false)
   const filterGroups = [
+    { key: 'availability', label: 'Availability', options: ['Available', 'Unavailable'] },
     { key: 'note', label: 'Fragrance notes', options: [...new Set(catalog.flatMap((perfume) => perfume.variants.flatMap((variant) => effectiveNotes(perfume, variant).flat())))].sort() },
     { key: 'concentration', label: 'Concentration', options: concentrations },
     { key: 'gender', label: 'Gender', options: genders },
@@ -110,13 +112,17 @@ export function CatalogHome({ catalog, status, onRetry }: {
     ))
     .map((perfume) => {
       const variants = matchingVariants(perfume, params)
-      return { perfume, variants, price: startingPrice(variants.filter((variant) => isOrderable(perfume, variant))) }
+      const orderable = variants.filter((variant) => isOrderable(perfume, variant))
+      return { perfume, variants, orderable, price: startingPrice(orderable) }
     })
-    .filter(({ variants }) => variants.length > 0)
+    .filter(({ variants, orderable }) => (
+      variants.length > 0 && matchesChoice(params, 'availability', [orderable.length ? 'Available' : 'Unavailable'])
+    ))
 
   if (sort === 'price-asc') results.sort((a, b) => a.price - b.price)
-  if (sort === 'price-desc') results.sort((a, b) => (b.price === Infinity ? -1 : b.price) - (a.price === Infinity ? -1 : a.price))
-  if (sort === 'name') results.sort((a, b) => a.perfume.name.localeCompare(b.perfume.name))
+  else if (sort === 'price-desc') results.sort((a, b) => (b.price === Infinity ? -1 : b.price) - (a.price === Infinity ? -1 : a.price))
+  else if (sort === 'name') results.sort((a, b) => a.perfume.name.localeCompare(b.perfume.name))
+  else results.sort((a, b) => Number(!a.orderable.length) - Number(!b.orderable.length))
 
   return (
     <>
@@ -135,7 +141,7 @@ export function CatalogHome({ catalog, status, onRetry }: {
 
         <section id="fragrances" className="catalog" aria-labelledby="catalog-title">
           <div className="catalog-heading">
-            <div><h2 id="catalog-title">Shop fragrances</h2><p>Sample catalog · Illustrative products and prices</p></div>
+            <h2 id="catalog-title">Shop fragrances</h2>
             <div className="catalog-controls">
               <label className="search-box">
                 <Search size={19} aria-hidden="true" />
@@ -168,7 +174,7 @@ export function CatalogHome({ catalog, status, onRetry }: {
             <label className="sort-control">
               <span className="sr-only">Sort fragrances</span>
               <select value={sort} onChange={(event) => setParam('sort', event.target.value)}>
-                <option value="">Featured</option>
+                <option value="">Available first</option>
                 <option value="price-asc">Price · Low to high</option>
                 <option value="price-desc">Price · High to low</option>
                 <option value="name">Name · A to Z</option>
@@ -186,8 +192,8 @@ export function CatalogHome({ catalog, status, onRetry }: {
             </div>
           ) : results.length > 0 ? (
             <div className="product-grid grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
-              {results.map(({ perfume, variants }) => (
-                <PerfumeCard key={perfume.id} perfume={perfume} variants={variants} />
+              {results.map(({ perfume, variants, orderable, price }) => (
+                <PerfumeCard key={perfume.id} perfume={perfume} variants={variants} orderable={orderable} price={price} />
               ))}
             </div>
           ) : (
