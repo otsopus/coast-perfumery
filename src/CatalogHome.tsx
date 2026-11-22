@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { ArrowRight, ChevronDown, Droplets, Flower2, Leaf, Search, SlidersHorizontal, Sun } from 'lucide-react'
 import { concentrations, effectiveNotes, formatPrice, genders, isOrderable, profiles, startingPrice } from './catalog'
 import type { StorefrontPerfume } from './catalog'
-import heroImage from './assets/hero.jpg'
+import { HeroSlideshow } from './HeroSlideshow'
 import { Modal } from './Modal'
 import { StorefrontLinks } from './StorefrontLinks'
 import { RouteLink } from './navigation'
@@ -143,9 +143,7 @@ export function CatalogHome({ catalog, status, onRetry }: {
             <a href="#fragrances" className="primary-button">Explore the catalog</a>
             <StorefrontLinks group="marketplace" />
           </div>
-          <div className="hero-photo">
-            <img src={heroImage} alt="Glass perfume atomizers and a bottle of amber fragrance on sunlit blue glass" fetchPriority="high" />
-          </div>
+          <HeroSlideshow />
         </section>
 
         <section className="ordering-guide" aria-labelledby="ordering-guide-title">
