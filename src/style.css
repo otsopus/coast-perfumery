@@ -89,10 +89,15 @@ a { color: inherit; }
 .sort-control svg { position: absolute; right: 0; pointer-events: none; }
 
 .product-grid { gap: clamp(10px, 1.8vw, 24px); }
-.perfume-card { position: relative; display: flex; flex-direction: column; min-width: 0; border: 1px solid var(--line); border-radius: 11px; background: #fff; transition: border-color .18s, box-shadow .18s; }
+.perfume-card { position: relative; display: flex; flex-direction: column; min-width: 0; border: 1px solid var(--line); border-radius: 11px; background: #fff; transition: border-color .18s, box-shadow .18s, background-color .3s; }
 .perfume-card:hover { border-color: #94bec2; box-shadow: 0 7px 25px #153a4210; }
+.perfume-card-unavailable { background-color: #f7f8f8; }
 .card-photo { position: relative; width: 100%; aspect-ratio: 1.14; overflow: hidden; border-radius: 10px 10px 0 0; background: var(--sea); }
-.card-photo img { display: block; width: 100%; height: 100%; object-fit: cover; transition: transform .3s; }
+.card-photo img { display: block; width: 100%; height: 100%; object-fit: cover; transition: transform .3s, filter .3s; }
+.perfume-card-unavailable .card-photo img {
+  filter: grayscale(.45) brightness(.96);
+  animation: unavailable-photo-in .3s ease-out;
+}
 .perfume-card:hover img { transform: scale(1.045); }
 .profile-label { position: absolute; top: 12px; left: 12px; padding: 4px 10px; border-radius: 20px; background: #fff; font-size: .75rem; font-weight: 700; }
 .card-copy { display: flex; flex-direction: column; flex: 1; width: 100%; padding: clamp(11px, 1.5vw, 20px); }
@@ -328,6 +333,7 @@ body:has(.modal[open]) { overflow: hidden; }
 @keyframes page-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes count-in { from { transform: scale(.72); } to { transform: scale(1); } }
 @keyframes photo-in { from { opacity: .45; } to { opacity: 1; } }
+@keyframes unavailable-photo-in { from { filter: none; } }
 @keyframes dialog-in { from { opacity: 0; transform: translateY(6px) scale(.99); } to { opacity: 1; transform: translateY(0) scale(1); } }
 
 @media (max-width: 48rem) {

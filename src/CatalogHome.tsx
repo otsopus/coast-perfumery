@@ -30,7 +30,7 @@ function PerfumeCard({ perfume, variants, orderable, price }: {
   price: number
 }) {
   return (
-    <article className="perfume-card">
+    <article className={orderable.length ? 'perfume-card' : 'perfume-card perfume-card-unavailable'}>
       <div className="card-photo">
         <img src={perfume.image} alt={`${perfume.name} bottle`} width="570" height="570" loading="lazy" />
         <span className="profile-label">{perfume.profile}</span>
