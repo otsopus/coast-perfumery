@@ -122,7 +122,7 @@ a { color: inherit; }
   border: 1px solid #8aafc6;
   border-radius: 18px;
   padding: clamp(14px, 2.2vw, 30px);
-  background-color: rgb(207 231 246 / 50%);
+  background-color: rgb(255 255 255 / 50%);
 }
 .ordering-guide {
   margin-block-start: clamp(14px, 2vw, 28px);
