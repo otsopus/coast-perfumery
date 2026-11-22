@@ -1,6 +1,6 @@
 import { Minus, Plus, ShoppingBag, Trash2 } from 'lucide-react'
 import { formatPrice } from './catalog'
-import type { Perfume } from './catalog'
+import type { StorefrontPerfume } from './catalog'
 import { itemId, maximumQuantity, remainingFor, subtotalFor } from './cart'
 import type { CartLine, ReviewedLine } from './cart'
 import { RouteLink } from './navigation'
@@ -11,7 +11,7 @@ export type CartActions = {
 }
 
 export function CartReview({ catalog, lines, rows, onQuantity, onAcceptPrices }: CartActions & {
-  catalog: Perfume[]
+  catalog: StorefrontPerfume[]
   lines: CartLine[]
   rows: ReviewedLine[]
 }) {

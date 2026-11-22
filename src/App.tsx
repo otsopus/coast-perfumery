@@ -8,18 +8,25 @@ import { CheckoutPage } from './CheckoutPage'
 import { ProductPage } from './ProductPage'
 import { Navigation, RouteLink } from './navigation'
 import { catalog as sampleCatalog, volumeUnits } from './catalog'
-import type { Perfume } from './catalog'
+import type { Perfume, StorefrontPerfume } from './catalog'
 import { cartStorageKey, findItem, itemId, readCart, remainingFor, reviewCart } from './cart'
 import type { CartLine, ItemKey } from './cart'
 import { emptyCheckout } from './order'
 import logo from './assets/shop-logo.jpg'
 
+type CatalogState =
+  | { status: 'loading' | 'error' }
+  | { status: 'ready'; listings: StorefrontPerfume[] }
+
 export function App() {
   const [path, setPath] = useState(() => location.pathname.replace(/\/$/, '') || '/')
-  const [catalog, setCatalog] = useState(sampleCatalog)
-  const [lines, setLines] = useState(() => readCart(sampleCatalog))
+  const [demoCatalog, setDemoCatalog] = useState(sampleCatalog)
+  const [catalogState, setCatalogState] = useState<CatalogState>({ status: 'loading' })
+  const [lines, setLines] = useState(readCart)
   const [fields, setFields] = useState(emptyCheckout)
   const [history, setHistory] = useState<Adjustment[]>([])
+  const catalog = catalogState.status === 'ready' ? catalogState.listings : []
+  const needsCatalog = path === '/' || path === '/cart' || path === '/checkout' || path.startsWith('/perfumes/')
   const rows = reviewCart(catalog, lines)
   const count = lines.reduce((total, { quantity }) => total + quantity, 0)
   const perfume = path.startsWith('/perfumes/') ? catalog.find(({ id }) => path === `/perfumes/${id}`) : undefined
@@ -34,12 +41,29 @@ export function App() {
 
   useEffect(() => {
     try {
-      const stored = lines.map(({ perfumeId, variantId, sizeId, quantity }) => ({ perfumeId, variantId, sizeId, quantity }))
-      localStorage.setItem(cartStorageKey, JSON.stringify(stored))
+      localStorage.setItem(cartStorageKey, JSON.stringify(lines))
     } catch {
       // The cart remains usable in memory if browser storage is unavailable.
     }
   }, [lines])
+
+  useEffect(() => {
+    if (!needsCatalog || catalogState.status !== 'loading') return
+    const controller = new AbortController()
+    import('./storefrontCatalog').then(({ loadStorefrontCatalog }) => loadStorefrontCatalog(controller.signal)).then(
+      (listings) => {
+        if (!controller.signal.aborted) setCatalogState({ status: 'ready', listings })
+      },
+      () => {
+        if (!controller.signal.aborted) setCatalogState({ status: 'error' })
+      },
+    )
+    return () => controller.abort()
+  }, [needsCatalog, catalogState.status])
+
+  function retryCatalog() {
+    setCatalogState({ status: 'loading' })
+  }
 
   useEffect(() => {
     const titles: Record<string, string> = { '/': 'Fragrance Decants', '/cart': 'Your Cart', '/checkout': 'Checkout', '/admin': 'Catalog Dashboard', '/admin/login': 'Staff Workspace' }
@@ -88,12 +112,12 @@ export function App() {
   }
 
   function savePerfume(update: Perfume) {
-    setCatalog((current) => current.some(({ id }) => id === update.id)
+    setDemoCatalog((current) => current.some(({ id }) => id === update.id)
       ? current.map((entry) => entry.id === update.id ? update : entry) : [...current, update])
   }
 
   function changeStock(selection: { perfume: Perfume; variant: Perfume['variants'][number]; type: Adjustment['type'] }, value: number) {
-    const currentPerfume = catalog.find(({ id }) => id === selection.perfume.id)
+    const currentPerfume = demoCatalog.find(({ id }) => id === selection.perfume.id)
     const variant = currentPerfume?.variants.find(({ id }) => id === selection.variant.id)
     if (!currentPerfume || !variant) return 'That concentration is no longer available. Close the editor and refresh your selection.'
     const before = variant.remainingMl
@@ -110,13 +134,21 @@ export function App() {
   }
 
   let page
-  if (path === '/') page = <CatalogHome catalog={catalog} />
+  if (path === '/') page = <CatalogHome catalog={catalog} status={catalogState.status} onRetry={retryCatalog} />
+  else if (needsCatalog && catalogState.status !== 'ready') page = <main id="main-content" className="site-container page-frame">
+    <div className="empty-state">
+      {catalogState.status === 'loading' ? <p role="status">Loading fragrances…</p> : <>
+        <p role="alert">The fragrance catalog couldn't load.</p>
+        <button type="button" className="secondary-button" onClick={retryCatalog}>Try again</button>
+      </>}
+    </div>
+  </main>
   else if (perfume) page = <ProductPage key={perfume.id} perfume={perfume} catalog={catalog} lines={lines} onAdd={addItem} />
   else if (path === '/cart') page = <CartPage {...cartProps} />
   else if (path === '/checkout') page = <CheckoutPage {...cartProps} fields={fields} onFields={setFields} />
   else if (path === '/admin/login') page = <AdminLanding />
-  else if (path === '/admin') page = <AdminPage catalog={catalog} history={history} onSave={savePerfume} onStock={changeStock}
-    onDelete={(id) => setCatalog((current) => current.filter((entry) => entry.id !== id))} />
+  else if (path === '/admin') page = <AdminPage catalog={demoCatalog} history={history} onSave={savePerfume} onStock={changeStock}
+    onDelete={(id) => setDemoCatalog((current) => current.filter((entry) => entry.id !== id))} />
   else page = <main id="main-content" className="site-container page-frame">
     <div className="empty-state"><h1 className="page-title">This page is unavailable</h1><RouteLink className="primary-button" to="/#fragrances">Browse fragrances</RouteLink></div>
   </main>
