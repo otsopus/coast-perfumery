@@ -14,6 +14,7 @@ export async function loadStorefrontCatalog(signal: AbortSignal): Promise<Storef
     variants: listing.variants.map((variant) => ({
       ...variant,
       description: variant.description ?? undefined,
+      notes: variant.notes ?? undefined,
       images: variant.images?.map(catalogImageUrl),
     })),
   }))

@@ -6,7 +6,6 @@ import { reviewCart, subtotalFor } from './cart'
 import { downloadOrder, makeOrder, orderText } from './order'
 import type { CheckoutFields, Order } from './order'
 import { RouteLink } from './navigation'
-import { Modal } from './Modal'
 
 const couriers = ['Lalamove', 'GrabExpress', 'J&T']
 const payments = ['GCash', 'Bank transfer', 'Undecided']
@@ -21,18 +20,18 @@ const fieldConfig = [
 type Errors = Partial<Record<keyof CheckoutFields, string>>
 
 function messengerAddress() {
+  const shopUrl = 'https://m.me/coastperfumerymnl'
   try {
-    const url = new URL(import.meta.env.VITE_MESSENGER_URL)
-    return url.protocol === 'https:' && ['m.me', 'www.messenger.com', 'messenger.com'].includes(url.hostname) ? url.href : ''
+    const url = new URL(import.meta.env.VITE_MESSENGER_URL?.trim() || shopUrl)
+    return url.protocol === 'https:' && ['m.me', 'www.messenger.com', 'messenger.com'].includes(url.hostname) ? url.href : shopUrl
   } catch {
-    return ''
+    return shopUrl
   }
 }
 
 function OrderSummary({ order, onEdit }: { order: Order; onEdit: () => void }) {
   const [feedback, setFeedback] = useState('')
   const [showText, setShowText] = useState(false)
-  const [showMessenger, setShowMessenger] = useState(false)
   const textRef = useRef<HTMLTextAreaElement>(null)
   const headingRef = useRef<HTMLHeadingElement>(null)
   const messengerUrl = messengerAddress()
@@ -71,7 +70,7 @@ function OrderSummary({ order, onEdit }: { order: Order; onEdit: () => void }) {
     <div className="commerce-layout summary-layout">
       <section className="receipt panel" aria-labelledby="order-title">
         <p className="eyebrow">Coast Perfumery Manila</p>
-        <h1 tabIndex={-1} ref={headingRef} id="order-title">Sample order request</h1>
+        <h1 tabIndex={-1} ref={headingRef} id="order-title">Order request</h1>
         <h2>Decants</h2>
         <ul className="receipt-items">{order.items.map((item, index) => <li key={index}>{item}</li>)}</ul>
         <Totals subtotal={order.subtotal} />
@@ -83,21 +82,12 @@ function OrderSummary({ order, onEdit }: { order: Order; onEdit: () => void }) {
         <h2>Send your request</h2>
         <p>Copy your order and paste it into Messenger, or attach the downloaded order image. The shop confirms availability and shipping there.</p>
         <button className="primary-button full-button" type="button" onClick={copy}><Clipboard size={18} /> Copy order text</button>
-        {messengerUrl
-          ? <a className="secondary-button full-button" href={messengerUrl} target="_blank" rel="noreferrer"><MessageCircle size={18} /> Open Messenger</a>
-          : <button className="secondary-button full-button" type="button" onClick={() => setShowMessenger(true)}><MessageCircle size={18} /> Preview Messenger handoff</button>}
+        <a className="secondary-button full-button" href={messengerUrl} target="_blank" rel="noreferrer"><MessageCircle size={18} /> Open Messenger</a>
         <button className="secondary-button full-button" type="button" onClick={saveImage}><Download size={18} /> Download order image</button>
         {feedback && <p className="notice" role="status">{feedback}</p>}
         {showText && <label className="field">Order text<textarea ref={textRef} readOnly rows={7} value={text} /></label>}
         <button type="button" className="text-button" onClick={onEdit}>Edit checkout details</button>
       </aside>
-      {showMessenger && <Modal labelId="messenger-title" onClose={() => setShowMessenger(false)}>
-        <div className="dialog-pad">
-          <h2 id="messenger-title">Messenger handoff</h2>
-          <p>In the live shop, this step opens the shop’s Messenger conversation. Paste the copied text or attach the order image there.</p>
-          <button className="primary-button" type="button" onClick={() => setShowMessenger(false)}>Back to order</button>
-        </div>
-      </Modal>}
     </div>
   )
 }
@@ -153,7 +143,6 @@ export function CheckoutPage({ fields, onFields, ...cart }: Parameters<typeof Ca
         {cart.rows.length ? <div className="commerce-layout">
           <form className="panel checkout-form" onSubmit={submit} noValidate>
             <h2>Delivery details</h2>
-            <p className="muted">Use sample contact details for this demo.</p>
             <div className="form-grid">
               {fieldConfig.map(({ key, label, autoComplete, ...extra }) => (
                 <label className="field" key={key}>{label}

@@ -1,18 +1,18 @@
-import { useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import { ShoppingBag } from 'lucide-react'
-import { AdminLanding, AdminPage } from './AdminPage'
-import type { Adjustment } from './AdminPage'
 import { CartPage } from './CartPage'
 import { CatalogHome } from './CatalogHome'
 import { CheckoutPage } from './CheckoutPage'
 import { ProductPage } from './ProductPage'
 import { Navigation, RouteLink } from './navigation'
-import { catalog as sampleCatalog, volumeUnits } from './catalog'
-import type { Perfume, StorefrontPerfume } from './catalog'
+import { volumeUnits } from './catalog'
+import type { StorefrontPerfume } from './catalog'
 import { cartStorageKey, findItem, itemId, readCart, remainingFor, reviewCart } from './cart'
 import type { CartLine, ItemKey } from './cart'
 import { emptyCheckout } from './order'
 import logo from './assets/shop-logo.jpg'
+
+const AdminWorkspace = lazy(() => import('./AdminWorkspace'))
 
 type CatalogState =
   | { status: 'loading' | 'error' }
@@ -20,11 +20,10 @@ type CatalogState =
 
 export function App() {
   const [path, setPath] = useState(() => location.pathname.replace(/\/$/, '') || '/')
-  const [demoCatalog, setDemoCatalog] = useState(sampleCatalog)
   const [catalogState, setCatalogState] = useState<CatalogState>({ status: 'loading' })
+  const [catalogVersion, setCatalogVersion] = useState(0)
   const [lines, setLines] = useState(readCart)
   const [fields, setFields] = useState(emptyCheckout)
-  const [history, setHistory] = useState<Adjustment[]>([])
   const catalog = catalogState.status === 'ready' ? catalogState.listings : []
   const needsCatalog = path === '/' || path === '/cart' || path === '/checkout' || path.startsWith('/perfumes/')
   const rows = reviewCart(catalog, lines)
@@ -59,10 +58,11 @@ export function App() {
       },
     )
     return () => controller.abort()
-  }, [needsCatalog, catalogState.status])
+  }, [needsCatalog, catalogState.status, catalogVersion])
 
   function retryCatalog() {
     setCatalogState({ status: 'loading' })
+    setCatalogVersion((current) => current + 1)
   }
 
   useEffect(() => {
@@ -111,23 +111,6 @@ export function App() {
     }
   }
 
-  function savePerfume(update: Perfume) {
-    setDemoCatalog((current) => current.some(({ id }) => id === update.id)
-      ? current.map((entry) => entry.id === update.id ? update : entry) : [...current, update])
-  }
-
-  function changeStock(selection: { perfume: Perfume; variant: Perfume['variants'][number]; type: Adjustment['type'] }, value: number) {
-    const currentPerfume = demoCatalog.find(({ id }) => id === selection.perfume.id)
-    const variant = currentPerfume?.variants.find(({ id }) => id === selection.variant.id)
-    if (!currentPerfume || !variant) return 'That concentration is no longer available. Close the editor and refresh your selection.'
-    const before = variant.remainingMl
-    if (selection.type === 'Correct' && before !== selection.variant.remainingMl) return 'Stock changed since this form was opened. Reopen it to review the new count.'
-    const after = selection.type === 'Deduct' ? (volumeUnits(before) - volumeUnits(value)) / 100 : value
-    if (after < 0) return 'The deduction exceeds the recorded volume.'
-    savePerfume({ ...currentPerfume, variants: currentPerfume.variants.map((entry) => entry.id === variant.id ? { ...entry, remainingMl: after } : entry) })
-    setHistory((current) => [{ id: crypto.randomUUID(), perfume: currentPerfume.name, concentration: variant.concentration, type: selection.type, before, after, date: new Date() }, ...current])
-  }
-
   const cartProps = {
     catalog, lines, rows, onQuantity: changeQuantity,
     onAcceptPrices: () => setLines((current) => current.map((line) => ({ ...line, quotedCentavos: findItem(catalog, line)?.size.centavos }))),
@@ -146,9 +129,11 @@ export function App() {
   else if (perfume) page = <ProductPage key={perfume.id} perfume={perfume} catalog={catalog} lines={lines} onAdd={addItem} />
   else if (path === '/cart') page = <CartPage {...cartProps} />
   else if (path === '/checkout') page = <CheckoutPage {...cartProps} fields={fields} onFields={setFields} />
-  else if (path === '/admin/login') page = <AdminLanding />
-  else if (path === '/admin') page = <AdminPage catalog={demoCatalog} history={history} onSave={savePerfume} onStock={changeStock}
-    onDelete={(id) => setDemoCatalog((current) => current.filter((entry) => entry.id !== id))} />
+  else if (path === '/admin/login' || path === '/admin') page = <Suspense fallback={
+    <main id="main-content" className="site-container page-frame"><p role="status">Loading staff workspace…</p></main>
+  }>
+    <AdminWorkspace onCatalogChanged={retryCatalog} />
+  </Suspense>
   else page = <main id="main-content" className="site-container page-frame">
     <div className="empty-state"><h1 className="page-title">This page is unavailable</h1><RouteLink className="primary-button" to="/#fragrances">Browse fragrances</RouteLink></div>
   </main>
@@ -173,7 +158,7 @@ export function App() {
     <footer className="site-footer">
       <div className="site-container footer-inner">
         <span>Coast Perfumery Manila</span>
-        <div className="footer-links"><RouteLink to="/#fragrances">Browse fragrances</RouteLink><RouteLink to="/admin/login">Staff demo</RouteLink></div>
+        <div className="footer-links"><RouteLink to="/#fragrances">Browse fragrances</RouteLink><RouteLink to="/admin/login">Staff sign-in</RouteLink></div>
       </div>
     </footer>
   </Navigation.Provider>
