@@ -1,12 +1,20 @@
 import { useEffect, useState } from 'react'
-import { ChevronDown, Droplets, Flower2, Leaf, Search, SlidersHorizontal, Sun } from 'lucide-react'
+import { ArrowRight, ChevronDown, Droplets, Flower2, Leaf, Search, SlidersHorizontal, Sun } from 'lucide-react'
 import { concentrations, effectiveNotes, formatPrice, genders, isOrderable, profiles, startingPrice } from './catalog'
 import type { StorefrontPerfume } from './catalog'
 import heroImage from './assets/hero.jpg'
 import { Modal } from './Modal'
+import { StorefrontLinks } from './StorefrontLinks'
 import { RouteLink } from './navigation'
 
 const profileIcons = { Fresh: Droplets, Citrus: Sun, Floral: Flower2, Woody: Leaf }
+
+const orderSteps = [
+  { title: 'Choose your decants', description: 'Pick your fragrances and sizes, then add them to your cart.' },
+  { title: 'Add delivery details', description: 'Enter your contact and delivery details at checkout.' },
+  { title: 'Generate your summary', description: 'The website turns your cart and delivery details into an order summary.' },
+  { title: 'Send it on Messenger', description: 'Paste the summary or attach the order image in the shop’s chat. The shop confirms your order there.' },
+]
 
 function matchesChoice(params: URLSearchParams, key: string, candidates: string[]) {
   const choices = params.getAll(key)
@@ -133,10 +141,27 @@ export function CatalogHome({ catalog, status, onRetry }: {
             <h1 id="hero-title">Find your next<br /><em>signature scent.</em></h1>
             <p className="hero-description">Explore fragrances in 2, 5, and 10 mL sizes. Try a few before choosing a full bottle.</p>
             <a href="#fragrances" className="primary-button">Explore the catalog</a>
+            <StorefrontLinks group="marketplace" />
           </div>
           <div className="hero-photo">
             <img src={heroImage} alt="Glass perfume atomizers and a bottle of amber fragrance on sunlit blue glass" fetchPriority="high" />
           </div>
+        </section>
+
+        <section className="ordering-guide" aria-labelledby="ordering-guide-title">
+          <h2 id="ordering-guide-title">How to order</h2>
+          <ol className="order-steps" role="list">
+            {orderSteps.map(({ title, description }, index) => (
+              <li className="order-step" key={title}>
+                <span className="order-step-number" aria-hidden="true">{index + 1}</span>
+                <div>
+                  <h3>{title}</h3>
+                  <p>{description}</p>
+                </div>
+                {index < orderSteps.length - 1 && <ArrowRight className="order-step-arrow" size={17} aria-hidden="true" />}
+              </li>
+            ))}
+          </ol>
         </section>
 
         <section id="fragrances" className="catalog" aria-labelledby="catalog-title">
