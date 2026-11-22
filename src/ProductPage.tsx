@@ -46,7 +46,6 @@ export function ProductPage({ perfume, lines, limits, status, onRetry, onAdd }: 
         <div>
           <div className="product-visual">
             <img key={images[imageIndex]} src={images[imageIndex] ?? images[0]} alt={`${perfume.name} fragrance bottle`} />
-            <span className="profile-label">{perfume.profile}</span>
           </div>
           {images.length > 1 && <div className="thumbnails">
             {images.map((image, index) => <button key={index} type="button" aria-label={`Show photo ${index + 1}`} aria-pressed={index === imageIndex} onClick={() => setImageIndex(index)}><img src={image} alt="" /></button>)}
@@ -55,6 +54,7 @@ export function ProductPage({ perfume, lines, limits, status, onRetry, onAdd }: 
         <section className="product-info" aria-labelledby="product-title">
           <p className="eyebrow">{perfume.brand}</p>
           <h1 id="product-title">{perfume.name}</h1>
+          <span className="profile-label" data-profile={perfume.profile}>{perfume.profile}</span>
           {description && <p className="description">{description}</p>}
           <fieldset className="option-group">
             <legend>Concentration</legend>
