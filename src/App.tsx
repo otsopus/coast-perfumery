@@ -12,6 +12,7 @@ import type { CartLine, CartStatus, ItemKey } from './cart'
 import { emptyCheckout } from './order'
 import type { CartSnapshot } from './storefrontCatalog'
 import logo from './assets/shop-logo.jpg'
+import coralStillLife from './assets/coral-still-life.png'
 
 const AdminWorkspace = lazy(() => import('./AdminWorkspace'))
 
@@ -107,8 +108,9 @@ export function App() {
     if (destination.href !== location.href) window.history.pushState(null, '', destination)
     setPath(destination.pathname.replace(/\/$/, '') || '/')
     requestAnimationFrame(() => {
-      if (destination.hash === '#fragrances') {
-        document.getElementById('fragrances')?.scrollIntoView()
+      const section = destination.hash && document.getElementById(destination.hash.slice(1))
+      if (section) {
+        section.scrollIntoView()
       } else {
         window.scrollTo({ top: 0, behavior: 'instant' })
         if (previous !== destination.pathname) {
@@ -185,7 +187,10 @@ export function App() {
           <span className="brand-text"><strong>Coast</strong><span>Perfumery Manila</span></span>
         </RouteLink>
         <nav className="header-actions" aria-label="Storefront">
-          <RouteLink to="/#fragrances" className="header-link">Shop fragrances</RouteLink>
+          <div className="header-links">
+            <RouteLink to="/#fragrances" className="header-link">Shop fragrances</RouteLink>
+            <RouteLink to="/#how-to-order" className="header-link">How to order</RouteLink>
+          </div>
           <RouteLink to="/cart" className="header-cart" aria-label={`Cart, ${count} ${count === 1 ? 'item' : 'items'}`} aria-current={path === '/cart' ? 'page' : undefined}>
             <ShoppingBag aria-hidden="true" size={19} /><span className="header-cart-text">Cart</span><span key={count} className="cart-count">{count}</span>
           </RouteLink>
@@ -199,6 +204,7 @@ export function App() {
           <span>Coast Perfumery Manila</span>
           <StorefrontLinks group="social" />
         </div>
+        <img className="footer-coral" src={coralStillLife} alt="" width="450" height="300" loading="lazy" />
         <div className="footer-links"><RouteLink to="/#fragrances">Browse fragrances</RouteLink><RouteLink to="/admin/login">Staff sign-in</RouteLink></div>
       </div>
     </footer>
