@@ -1,14 +1,14 @@
 import { useState } from 'react'
 import { Check, Minus, Plus, ShoppingBag } from 'lucide-react'
 import { effectiveNotes, formatPrice, isOrderable } from './catalog'
-import type { Perfume } from './catalog'
+import type { StorefrontPerfume } from './catalog'
 import { maximumQuantity, remainingFor } from './cart'
 import type { CartLine, ItemKey } from './cart'
 import { RouteLink } from './navigation'
 
 export function ProductPage({ perfume, catalog, lines, onAdd }: {
-  perfume: Perfume
-  catalog: Perfume[]
+  perfume: StorefrontPerfume
+  catalog: StorefrontPerfume[]
   lines: CartLine[]
   onAdd: (key: ItemKey, quantity: number) => boolean
 }) {

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { ChevronDown, Droplets, Flower2, Leaf, Search, SlidersHorizontal, Sun } from 'lucide-react'
 import { concentrations, effectiveNotes, formatPrice, genders, isOrderable, profiles, startingPrice } from './catalog'
-import type { Perfume } from './catalog'
+import type { StorefrontPerfume } from './catalog'
 import heroImage from './assets/hero.jpg'
 import { Modal } from './Modal'
 import { RouteLink } from './navigation'
@@ -13,7 +13,7 @@ function matchesChoice(params: URLSearchParams, key: string, candidates: string[
   return choices.length === 0 || choices.some((choice) => candidates.includes(choice))
 }
 
-function matchingVariants(perfume: Perfume, params: URLSearchParams) {
+function matchingVariants(perfume: StorefrontPerfume, params: URLSearchParams) {
   const maxPrice = Number(params.get('maxPrice'))
   const hasPriceLimit = Number.isFinite(maxPrice) && maxPrice > 0
   return perfume.variants.filter((variant) => (
@@ -24,8 +24,8 @@ function matchingVariants(perfume: Perfume, params: URLSearchParams) {
 }
 
 function PerfumeCard({ perfume, variants }: {
-  perfume: Perfume
-  variants: Perfume['variants']
+  perfume: StorefrontPerfume
+  variants: StorefrontPerfume['variants']
 }) {
   const orderable = variants.filter((variant) => isOrderable(perfume, variant))
   return (
@@ -47,7 +47,11 @@ function PerfumeCard({ perfume, variants }: {
   )
 }
 
-export function CatalogHome({ catalog }: { catalog: Perfume[] }) {
+export function CatalogHome({ catalog, status, onRetry }: {
+  catalog: StorefrontPerfume[]
+  status: 'loading' | 'error' | 'ready'
+  onRetry: () => void
+}) {
   const [params, setParams] = useState(() => new URLSearchParams(window.location.search))
   const [filtersOpen, setFiltersOpen] = useState(false)
   const filterGroups = [
@@ -158,7 +162,7 @@ export function CatalogHome({ catalog }: { catalog: Perfume[] }) {
 
           <div className="catalog-toolbar">
             <div className="result-info flex flex-wrap items-center gap-x-4 gap-y-1">
-              <p role="status">{results.length} {results.length === 1 ? 'fragrance' : 'fragrances'}</p>
+              {status === 'ready' && <p role="status">{results.length} {results.length === 1 ? 'fragrance' : 'fragrances'}</p>}
               {hasFilters && <button type="button" className="text-button" onClick={clearFilters}>Clear filters</button>}
             </div>
             <label className="sort-control">
@@ -173,7 +177,14 @@ export function CatalogHome({ catalog }: { catalog: Perfume[] }) {
             </label>
           </div>
 
-          {results.length > 0 ? (
+          {status === 'loading' ? (
+            <div className="empty-state" role="status"><p>Loading fragrances…</p></div>
+          ) : status === 'error' ? (
+            <div className="empty-state">
+              <p role="alert">The fragrance catalog couldn't load.</p>
+              <button type="button" className="secondary-button" onClick={onRetry}>Try again</button>
+            </div>
+          ) : results.length > 0 ? (
             <div className="product-grid grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
               {results.map(({ perfume, variants }) => (
                 <PerfumeCard key={perfume.id} perfume={perfume} variants={variants} />

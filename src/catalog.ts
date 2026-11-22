@@ -37,6 +37,18 @@ export type Perfume = {
   variants: Variant[]
 }
 
+export type StorefrontVariant = Omit<Variant, 'remainingMl' | 'sizes'> & {
+  sizes: (Variant['sizes'][number] & { maxQuantity: number })[]
+}
+
+export type StorefrontPerfume = Omit<Perfume, 'variants'> & { variants: StorefrontVariant[] }
+
+const sampleImageAssets = new Map([
+  ['citrus', citrus], ['floral', floral], ['fresh', fresh], ['woody', woody],
+])
+
+export const catalogImageUrl = (image: string) => sampleImageAssets.get(image) ?? image
+
 function variant(concentration: Variant['concentration'], notes: Notes, prices: number[], remainingMl = 24): Variant {
   return {
     id: concentration.toLowerCase(),
@@ -90,17 +102,20 @@ export const catalog: Perfume[] = [
   },
 ]
 
-export const effectiveNotes = (perfume: Perfume, variant: Variant): Notes => variant.notes ?? perfume.notes ?? [[], [], []]
+export const effectiveNotes = (perfume: Perfume | StorefrontPerfume, variant: Variant | StorefrontVariant): Notes => variant.notes ?? perfume.notes ?? [[], [], []]
 
 export const volumeUnits = (ml: number) => Math.round(ml * 100)
 
-export function isOrderable(perfume: Perfume, variant: Variant) {
-  return perfume.available && variant.available && variant.sizes.some(({ ml }) => ml <= variant.remainingMl)
+export function isOrderable(perfume: Perfume | StorefrontPerfume, variant: Variant | StorefrontVariant) {
+  if (!perfume.available || !variant.available) return false
+  return 'remainingMl' in variant
+    ? variant.sizes.some(({ ml }) => ml <= variant.remainingMl)
+    : variant.sizes.some(({ maxQuantity }) => maxQuantity > 0)
 }
 
-export function startingPrice(variants: Variant[]) {
-  return Math.min(...variants.flatMap(({ sizes, remainingMl }) => sizes
-    .filter(({ ml }) => ml <= remainingMl)
+export function startingPrice(variants: StorefrontVariant[]) {
+  return Math.min(...variants.flatMap(({ sizes }) => sizes
+    .filter(({ maxQuantity }) => maxQuantity > 0)
     .map(({ centavos }) => centavos)))
 }
 
