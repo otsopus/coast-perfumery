@@ -1,15 +1,15 @@
-import { lazy, Suspense, useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 import { ShoppingBag } from 'lucide-react'
 import { CartPage } from './CartPage'
 import { CatalogHome } from './CatalogHome'
 import { CheckoutPage } from './CheckoutPage'
 import { ProductPage } from './ProductPage'
 import { Navigation, RouteLink } from './navigation'
-import { volumeUnits } from './catalog'
 import type { StorefrontPerfume } from './catalog'
-import { cartStorageKey, findItem, itemId, readCart, remainingFor, reviewCart } from './cart'
-import type { CartLine, ItemKey } from './cart'
+import { additionalQuantity, cartStorageKey, findItem, itemId, readCart, reviewCart } from './cart'
+import type { CartLine, CartStatus, ItemKey } from './cart'
 import { emptyCheckout } from './order'
+import type { CartSnapshot } from './storefrontCatalog'
 import logo from './assets/shop-logo.jpg'
 
 const AdminWorkspace = lazy(() => import('./AdminWorkspace'))
@@ -18,17 +18,28 @@ type CatalogState =
   | { status: 'loading' | 'error' }
   | { status: 'ready'; listings: StorefrontPerfume[] }
 
+type CartRequest = { lines: CartLine[]; path: string; version: number }
+type CartResult = { request: CartRequest; snapshot: CartSnapshot | null }
+
 export function App() {
   const [path, setPath] = useState(() => location.pathname.replace(/\/$/, '') || '/')
   const [catalogState, setCatalogState] = useState<CatalogState>({ status: 'loading' })
   const [catalogVersion, setCatalogVersion] = useState(0)
   const [lines, setLines] = useState(readCart)
+  const [cartResult, setCartResult] = useState<CartResult | null>(null)
+  const [cartVersion, setCartVersion] = useState(0)
   const [fields, setFields] = useState(emptyCheckout)
   const catalog = catalogState.status === 'ready' ? catalogState.listings : []
   const needsCatalog = path === '/' || path === '/cart' || path === '/checkout' || path.startsWith('/perfumes/')
-  const rows = reviewCart(catalog, lines)
   const count = lines.reduce((total, { quantity }) => total + quantity, 0)
-  const perfume = path.startsWith('/perfumes/') ? catalog.find(({ id }) => path === `/perfumes/${id}`) : undefined
+  const productId = path.startsWith('/perfumes/') ? path.slice('/perfumes/'.length) : null
+  const needsCartCheck = Boolean(productId || (lines.length && (path === '/cart' || path === '/checkout')))
+  const cartRequest = useMemo(() => ({ lines, path, version: cartVersion }), [lines, path, cartVersion])
+  const currentResult = cartResult?.request === cartRequest ? cartResult : null
+  const snapshot = currentResult?.snapshot
+  const cartStatus: CartStatus = snapshot ? 'ready' : currentResult ? 'error' : 'loading'
+  const rows = reviewCart(snapshot?.catalog ?? catalog, lines, snapshot?.limits)
+  const perfume = (snapshot?.catalog ?? catalog).find(({ id }) => id === productId)
 
   useEffect(() => {
     function onBack() {
@@ -60,9 +71,27 @@ export function App() {
     return () => controller.abort()
   }, [needsCatalog, catalogState.status, catalogVersion])
 
+  useEffect(() => {
+    if (!needsCartCheck) return
+    const controller = new AbortController()
+    const record = (snapshot: CartSnapshot | null) => {
+      if (!controller.signal.aborted) setCartResult({ request: cartRequest, snapshot })
+    }
+    import('./storefrontCatalog').then(({ loadCartSnapshot }) => loadCartSnapshot(cartRequest.lines, productId, controller.signal))
+      .then(record, () => record(null))
+    return () => controller.abort()
+  }, [needsCartCheck, cartRequest, productId])
+
   function retryCatalog() {
     setCatalogState({ status: 'loading' })
     setCatalogVersion((current) => current + 1)
+  }
+
+  async function validateCheckout(signal: AbortSignal) {
+    const { loadCartSnapshot } = await import('./storefrontCatalog')
+    const snapshot = await loadCartSnapshot(lines, null, signal)
+    if (!signal.aborted) setCartResult({ request: cartRequest, snapshot })
+    return reviewCart(snapshot.catalog, lines, snapshot.limits)
   }
 
   useEffect(() => {
@@ -91,9 +120,9 @@ export function App() {
   }
 
   function addItem(key: ItemKey, quantity: number) {
-    const item = findItem(catalog, key)
+    const item = snapshot && findItem(snapshot.catalog, key)
     if (!item || !Number.isSafeInteger(quantity) || quantity < 1
-      || quantity * volumeUnits(item.size.ml) > volumeUnits(remainingFor(catalog, lines, item.perfume, item.variant))) return false
+      || quantity > additionalQuantity(snapshot?.limits, lines, key)) return false
     const existing = lines.find((line) => itemId(line) === itemId(key))
     setLines(existing
       ? lines.map((line) => line === existing ? { ...line, quantity: line.quantity + quantity } : line)
@@ -112,8 +141,15 @@ export function App() {
   }
 
   const cartProps = {
-    catalog, lines, rows, onQuantity: changeQuantity,
-    onAcceptPrices: () => setLines((current) => current.map((line) => ({ ...line, quotedCentavos: findItem(catalog, line)?.size.centavos }))),
+    rows, status: cartStatus, onQuantity: changeQuantity,
+    onRetry: () => setCartVersion((current) => current + 1),
+    onAcceptPrices: () => {
+      if (!snapshot) return
+      setLines((current) => current.map((line) => {
+        const price = findItem(snapshot.catalog, line)?.size.centavos
+        return price === undefined ? line : { ...line, quotedCentavos: price }
+      }))
+    },
   }
 
   let page
@@ -126,9 +162,10 @@ export function App() {
       </>}
     </div>
   </main>
-  else if (perfume) page = <ProductPage key={perfume.id} perfume={perfume} catalog={catalog} lines={lines} onAdd={addItem} />
+  else if (perfume) page = <ProductPage key={perfume.id} perfume={perfume} lines={lines} limits={snapshot?.limits}
+    status={cartStatus} onRetry={cartProps.onRetry} onAdd={addItem} />
   else if (path === '/cart') page = <CartPage {...cartProps} />
-  else if (path === '/checkout') page = <CheckoutPage {...cartProps} fields={fields} onFields={setFields} />
+  else if (path === '/checkout') page = <CheckoutPage {...cartProps} fields={fields} onFields={setFields} onValidate={validateCheckout} />
   else if (path === '/admin/login' || path === '/admin') page = <Suspense fallback={
     <main id="main-content" className="site-container page-frame"><p role="status">Loading staff workspace…</p></main>
   }>

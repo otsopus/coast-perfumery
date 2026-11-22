@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { Clipboard, Download, MessageCircle } from 'lucide-react'
-import { CartReview, Totals } from './CartPage'
-import { reviewCart, subtotalFor } from './cart'
+import { CartAvailabilityNotice, CartReview, Totals } from './CartPage'
+import type { CartProps } from './CartPage'
+import { itemId, subtotalFor } from './cart'
+import type { ReviewedLine } from './cart'
 import { downloadOrder, makeOrder, orderText } from './order'
 import type { CheckoutFields, Order } from './order'
 import { RouteLink } from './navigation'
@@ -92,22 +94,29 @@ function OrderSummary({ order, onEdit }: { order: Order; onEdit: () => void }) {
   )
 }
 
-export function CheckoutPage({ fields, onFields, ...cart }: Parameters<typeof CartReview>[0] & {
+export function CheckoutPage({ fields, onFields, onValidate, ...cart }: CartProps & {
   fields: CheckoutFields
   onFields: (fields: CheckoutFields) => void
+  onValidate: (signal: AbortSignal) => Promise<ReviewedLine[]>
 }) {
   const [errors, setErrors] = useState<Errors>({})
   const [order, setOrder] = useState<Order | null>(null)
   const [reviewNeeded, setReviewNeeded] = useState(false)
+  const [checking, setChecking] = useState(false)
+  const [validationError, setValidationError] = useState(false)
+  const validation = useRef<AbortController | null>(null)
   const needsReview = cart.rows.some(({ issue, priceChanged }) => issue || priceChanged)
+
+  useEffect(() => () => validation.current?.abort(), [])
 
   function updateField(key: keyof CheckoutFields, value: string) {
     onFields({ ...fields, [key]: value })
     setErrors((previous) => ({ ...previous, [key]: undefined }))
   }
 
-  function submit(event: FormEvent<HTMLFormElement>) {
+  async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    if (validation.current || cart.status !== 'ready' || !cart.rows.length) return
     const next: Errors = {}
     for (const { key, label } of fieldConfig) {
       if (!fields[key].trim()) next[key] = `Enter your ${label.toLowerCase()}.`
@@ -119,16 +128,28 @@ export function CheckoutPage({ fields, onFields, ...cart }: Parameters<typeof Ca
     if (!payments.includes(fields.payment)) next.payment = 'Choose a payment preference.'
     setErrors(next)
 
-    const currentRows = reviewCart(cart.catalog, cart.lines)
-    const invalidCart = currentRows.length === 0 || currentRows.some(({ issue, priceChanged }) => issue || priceChanged)
-    setReviewNeeded(invalidCart)
     if (Object.keys(next).length) {
       event.currentTarget.querySelector<HTMLElement>(`[name="${Object.keys(next)[0]}"]`)?.focus()
       return
     }
-    if (invalidCart) return
-    setOrder(makeOrder(fields, currentRows))
-    window.scrollTo({ top: 0, behavior: 'instant' })
+    const controller = new AbortController()
+    validation.current = controller
+    setChecking(true)
+    setValidationError(false)
+    try {
+      const currentRows = await onValidate(controller.signal)
+      if (controller.signal.aborted) return
+      const invalidCart = currentRows.length === 0 || currentRows.some(({ issue, priceChanged }) => issue || priceChanged)
+      setReviewNeeded(invalidCart)
+      if (invalidCart) return
+      setOrder(makeOrder(fields, currentRows))
+      window.scrollTo({ top: 0, behavior: 'instant' })
+    } catch {
+      if (!controller.signal.aborted) setValidationError(true)
+    } finally {
+      validation.current = null
+      if (!controller.signal.aborted) setChecking(false)
+    }
   }
 
   function errorFor(key: keyof CheckoutFields) {
@@ -141,12 +162,12 @@ export function CheckoutPage({ fields, onFields, ...cart }: Parameters<typeof Ca
       {order ? <OrderSummary order={order} onEdit={() => setOrder(null)} /> : <>
         <h1 className="page-title">Checkout</h1>
         {cart.rows.length ? <div className="commerce-layout">
-          <form className="panel checkout-form" onSubmit={submit} noValidate>
+          <form className="panel checkout-form" onSubmit={submit} noValidate aria-busy={checking}>
             <h2>Delivery details</h2>
             <div className="form-grid">
               {fieldConfig.map(({ key, label, autoComplete, ...extra }) => (
                 <label className="field" key={key}>{label}
-                  <input name={key} autoComplete={autoComplete} maxLength={key === 'phone' ? 25 : 100} required
+                  <input name={key} autoComplete={autoComplete} maxLength={key === 'phone' ? 25 : 100} required disabled={checking}
                     value={fields[key]} aria-invalid={!!errors[key]} aria-describedby={errors[key] ? `${key}-error` : undefined}
                     onChange={(event) => updateField(key, event.target.value)} {...extra} />
                   {errorFor(key)}
@@ -154,7 +175,7 @@ export function CheckoutPage({ fields, onFields, ...cart }: Parameters<typeof Ca
               ))}
               {([{ key: 'courier', label: 'Preferred courier', choices: couriers }, { key: 'payment', label: 'Preferred payment method', choices: payments }] as const).map(({ key, label, choices }) => (
                 <label className="field" key={key}>{label}
-                  <select name={key} required value={fields[key]} aria-invalid={!!errors[key]} aria-describedby={errors[key] ? `${key}-error` : undefined}
+                  <select name={key} required disabled={checking} value={fields[key]} aria-invalid={!!errors[key]} aria-describedby={errors[key] ? `${key}-error` : undefined}
                     onChange={(event) => updateField(key, event.target.value)}>
                     <option value="">Choose an option</option>
                     {choices.map((choice) => <option key={choice}>{choice}</option>)}
@@ -163,17 +184,21 @@ export function CheckoutPage({ fields, onFields, ...cart }: Parameters<typeof Ca
                 </label>
               ))}
               <label className="field form-wide">Additional notes (optional)
-                <textarea name="notes" rows={3} maxLength={500} value={fields.notes} onChange={(event) => updateField('notes', event.target.value)} />
+                <textarea name="notes" rows={3} maxLength={500} disabled={checking} value={fields.notes} onChange={(event) => updateField('notes', event.target.value)} />
               </label>
             </div>
             {reviewNeeded && needsReview && <p className="notice" role="alert">Review the updated cart before generating an order request.</p>}
-            <button type="submit" className="primary-button">Generate order summary</button>
+            <CartAvailabilityNotice status={cart.status} onRetry={cart.onRetry} />
+            {validationError && <p className="notice" role="alert">We couldn't verify your cart. Your cart and delivery details are still here.</p>}
+            <button type="submit" className="primary-button" disabled={checking || cart.status !== 'ready'}>
+              {checking ? 'Checking cart…' : validationError ? 'Retry cart validation' : 'Generate order summary'}
+            </button>
           </form>
           <div className="checkout-review">
-            {needsReview ? <CartReview {...cart} /> : <section className="panel">
+            {needsReview ? <CartReview {...cart} busy={checking} /> : <section className="panel">
               <h2>Your decants</h2>
               <ul className="checkout-lines">
-                {cart.rows.map(({ line, item }) => item && <li key={`${line.perfumeId}-${line.variantId}-${line.sizeId}`}>
+                {cart.rows.map(({ line, item }) => item && <li key={itemId(line)}>
                   <strong>{line.quantity} × {item.perfume.name}</strong><span>{item.variant.concentration} · {item.size.ml} mL</span>
                 </li>)}
               </ul>

@@ -2,14 +2,17 @@ import { useState } from 'react'
 import { Check, Minus, Plus, ShoppingBag } from 'lucide-react'
 import { effectiveNotes, formatPrice, isOrderable } from './catalog'
 import type { StorefrontPerfume } from './catalog'
-import { maximumQuantity, remainingFor } from './cart'
-import type { CartLine, ItemKey } from './cart'
+import { additionalQuantity } from './cart'
+import type { CartLimits, CartLine, CartStatus, ItemKey } from './cart'
+import { CartAvailabilityNotice } from './CartPage'
 import { RouteLink } from './navigation'
 
-export function ProductPage({ perfume, catalog, lines, onAdd }: {
+export function ProductPage({ perfume, lines, limits, status, onRetry, onAdd }: {
   perfume: StorefrontPerfume
-  catalog: StorefrontPerfume[]
   lines: CartLine[]
+  limits?: CartLimits
+  status: CartStatus
+  onRetry: () => void
   onAdd: (key: ItemKey, quantity: number) => boolean
 }) {
   const preferred = new URLSearchParams(location.search).get('concentration')
@@ -22,10 +25,10 @@ export function ProductPage({ perfume, catalog, lines, onAdd }: {
   const [feedback, setFeedback] = useState('')
   const variant = perfume.variants.find(({ id }) => id === variantId) ?? first
   const images = variant.images?.length ? variant.images : [perfume.image, ...(perfume.gallery ?? [])]
-  const availableMl = remainingFor(catalog, lines, perfume, variant)
+  const availableFor = (sizeId: string) => additionalQuantity(limits, lines, { perfumeId: perfume.id, variantId: variant.id, sizeId })
   const requestedSize = variant.sizes.find(({ id }) => id === sizeId)
-  const size = requestedSize ?? variant.sizes.find(({ ml }) => ml <= availableMl) ?? variant.sizes[0]
-  const maximum = size ? maximumQuantity(availableMl, size.ml) : 0
+  const size = requestedSize ?? variant.sizes.find(({ id }) => availableFor(id) > 0) ?? variant.sizes[0]
+  const maximum = size ? availableFor(size.id) : 0
   const actualQuantity = Math.min(quantity, Math.max(1, maximum))
 
   function addToCart() {
@@ -64,7 +67,7 @@ export function ProductPage({ perfume, catalog, lines, onAdd }: {
             <legend>Decant size</legend>
             <div className="size-options">{variant.sizes.map((choice) => (
               <button key={choice.id} type="button" className="size-option" aria-pressed={size?.id === choice.id}
-                aria-label={`${choice.ml} mL, ${formatPrice(choice.centavos)}`} disabled={choice.ml > availableMl}
+                aria-label={`${choice.ml} mL, ${formatPrice(choice.centavos)}`} disabled={!availableFor(choice.id)}
                 onClick={() => { setSizeId(choice.id); setQuantity(1); setFeedback('') }}>
                 <strong>{choice.ml} mL</strong><span>{formatPrice(choice.centavos)}</span>
               </button>
@@ -77,10 +80,12 @@ export function ProductPage({ perfume, catalog, lines, onAdd }: {
               <button type="button" aria-label="Increase quantity" disabled={actualQuantity >= maximum} onClick={() => setQuantity(actualQuantity + 1)}><Plus size={16} /></button>
             </div>
             <button type="button" className="primary-button" disabled={maximum < 1} onClick={addToCart}>
-              <ShoppingBag size={18} /> {maximum && size ? `Add to cart · ${formatPrice(size.centavos * actualQuantity)}` : 'Unavailable for this cart'}
+              <ShoppingBag size={18} /> {status !== 'ready' ? 'Add to cart' : maximum && size
+                ? `Add to cart · ${formatPrice(size.centavos * actualQuantity)}` : 'Unavailable for this cart'}
             </button>
           </div>
-          {maximum < 1 && !feedback && <p className="muted">Try another size or concentration, or adjust items already in your cart.</p>}
+          <CartAvailabilityNotice status={status} onRetry={onRetry} />
+          {status === 'ready' && maximum < 1 && !feedback && <p className="muted">Try another size or concentration, or adjust items already in your cart.</p>}
           {feedback && <div className="success-message" role="status"><Check size={18} /> <span>{feedback}</span> <RouteLink to="/cart">View cart</RouteLink></div>}
           <dl className="notes-panel">{['Top', 'Middle', 'Base'].map((label, index) => (
             <div key={label}><dt>{label} notes</dt><dd>{effectiveNotes(perfume, variant)[index].join(', ') || '—'}</dd></div>

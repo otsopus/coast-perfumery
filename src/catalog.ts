@@ -111,8 +111,6 @@ export const catalog: Perfume[] = [
 
 export const effectiveNotes = (perfume: Perfume | StorefrontPerfume, variant: Variant | StorefrontVariant): Notes => variant.notes ?? perfume.notes ?? [[], [], []]
 
-export const volumeUnits = (ml: number) => Math.round(ml * 100)
-
 export function isOrderable(perfume: Perfume | StorefrontPerfume, variant: Variant | StorefrontVariant) {
   if (!perfume.available || !variant.available) return false
   return 'remainingMl' in variant
