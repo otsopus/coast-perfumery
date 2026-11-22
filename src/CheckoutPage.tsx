@@ -5,6 +5,7 @@ import { CartAvailabilityNotice, CartReview, Totals } from './CartPage'
 import type { CartProps } from './CartPage'
 import { itemId, subtotalFor } from './cart'
 import type { ReviewedLine } from './cart'
+import { RequiredFieldsHint, RequiredLabel } from './FormLabels'
 import { downloadOrder, makeOrder, orderText } from './order'
 import type { CheckoutFields, Order } from './order'
 import { RouteLink } from './navigation'
@@ -164,9 +165,10 @@ export function CheckoutPage({ fields, onFields, onValidate, ...cart }: CartProp
         {cart.rows.length ? <div className="commerce-layout">
           <form className="panel checkout-form" onSubmit={submit} noValidate aria-busy={checking}>
             <h2>Delivery details</h2>
+            <RequiredFieldsHint />
             <div className="form-grid">
               {fieldConfig.map(({ key, label, autoComplete, ...extra }) => (
-                <label className="field" key={key}>{label}
+                <label className="field" key={key}><RequiredLabel>{label}</RequiredLabel>
                   <input name={key} autoComplete={autoComplete} maxLength={key === 'phone' ? 25 : 100} required disabled={checking}
                     value={fields[key]} aria-invalid={!!errors[key]} aria-describedby={errors[key] ? `${key}-error` : undefined}
                     onChange={(event) => updateField(key, event.target.value)} {...extra} />
@@ -174,7 +176,7 @@ export function CheckoutPage({ fields, onFields, onValidate, ...cart }: CartProp
                 </label>
               ))}
               {([{ key: 'courier', label: 'Preferred courier', choices: couriers }, { key: 'payment', label: 'Preferred payment method', choices: payments }] as const).map(({ key, label, choices }) => (
-                <label className="field" key={key}>{label}
+                <label className="field" key={key}><RequiredLabel>{label}</RequiredLabel>
                   <select name={key} required disabled={checking} value={fields[key]} aria-invalid={!!errors[key]} aria-describedby={errors[key] ? `${key}-error` : undefined}
                     onChange={(event) => updateField(key, event.target.value)}>
                     <option value="">Choose an option</option>

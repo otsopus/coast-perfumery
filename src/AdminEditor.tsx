@@ -3,6 +3,7 @@ import type { FormEvent, ReactNode } from 'react'
 import { ImagePlus, Plus, Trash2 } from 'lucide-react'
 import { catalogImageUrl, concentrations, defaultOccasions, effectiveNotes, genders, profiles, samplePhotos } from './catalog'
 import type { Notes, Perfume, Variant } from './catalog'
+import { RequiredFieldsHint, RequiredLabel } from './FormLabels'
 import type { StaffListing, StaffListingDraft } from './supabase'
 
 type SizeDraft = { id: string; volume: string; price: string }
@@ -16,8 +17,8 @@ const noteLabels = ['Top notes', 'Middle notes', 'Base notes']
 const splitTags = (value: string) => [...new Map(value.split(',').map((part) => part.trim()).filter(Boolean).map((tag) => [tag.toLowerCase(), tag])).values()]
 const toNotes = (values: string[]): Notes => [splitTags(values[0]), splitTags(values[1]), splitTags(values[2])]
 
-function PhotoEditor({ label, images, onChange, onStage }: {
-  label: string; images: string[]; onChange: (images: string[]) => void; onStage: (file: File) => string
+function PhotoEditor({ label, images, required, onChange, onStage }: {
+  label: string; images: string[]; required?: boolean; onChange: (images: string[]) => void; onStage: (file: File) => string
 }) {
   const [error, setError] = useState('')
 
@@ -38,7 +39,8 @@ function PhotoEditor({ label, images, onChange, onStage }: {
 
   return (
     <fieldset className="photo-editor">
-      <legend>{label}</legend>
+      <legend>{required ? <RequiredLabel>{label}</RequiredLabel> : label}</legend>
+      {required && <p className="sr-only">Add at least one listing photo.</p>}
       {images.length > 0 && <div className="admin-thumbnails">
         {images.map((image, index) => <div className="admin-photo" key={index}>
           <img src={catalogImageUrl(image)} alt={`Photo ${index + 1}`} />
@@ -139,8 +141,8 @@ export function AdminEditor({ perfume, catalog, busy, saveError, onSave, onCance
     if (busy) return
     const cleanedName = name.trim()
     const cleanedBrand = brand.trim()
-    if (!cleanedName || !cleanedBrand || !description.trim() || !images.length) {
-      setError('Enter a name, brand, and description, then add a cover photo.')
+    if (!cleanedName || !cleanedBrand || !images.length) {
+      setError('Enter a name and brand, then add a cover photo.')
       return
     }
     if (!variants.length || new Set(variants.map(({ concentration }) => concentration)).size !== variants.length) {
@@ -185,18 +187,19 @@ export function AdminEditor({ perfume, catalog, busy, saveError, onSave, onCance
   return <form className="admin-editor" onSubmit={save}>
     <div className="contents" inert={busy}>
     <EditorSection title="Listing details">
+      <RequiredFieldsHint />
       <div className="form-grid">
-        <label className="field">Perfume name<input required value={name} maxLength={80} onChange={(event) => setName(event.target.value)} /></label>
-        <label className="field">Brand<input required value={brand} maxLength={80} onChange={(event) => setBrand(event.target.value)} /></label>
-        <label className="field">Scent profile<select value={profile} onChange={(event) => setProfile(event.target.value as Perfume['profile'])}>{profiles.map((value) => <option key={value}>{value}</option>)}</select></label>
-        <label className="field">Gender<select value={gender} onChange={(event) => setGender(event.target.value as Perfume['gender'])}>{genders.map((value) => <option key={value}>{value}</option>)}</select></label>
-        <label className="field form-wide">Description<textarea rows={3} value={description} required maxLength={1500} onChange={(event) => setDescription(event.target.value)} /></label>
+        <label className="field"><RequiredLabel>Perfume name</RequiredLabel><input required value={name} maxLength={80} onChange={(event) => setName(event.target.value)} /></label>
+        <label className="field"><RequiredLabel>Brand</RequiredLabel><input required value={brand} maxLength={80} onChange={(event) => setBrand(event.target.value)} /></label>
+        <label className="field"><RequiredLabel>Scent profile</RequiredLabel><select required value={profile} onChange={(event) => setProfile(event.target.value as Perfume['profile'])}>{profiles.map((value) => <option key={value}>{value}</option>)}</select></label>
+        <label className="field"><RequiredLabel>Gender</RequiredLabel><select required value={gender} onChange={(event) => setGender(event.target.value as Perfume['gender'])}>{genders.map((value) => <option key={value}>{value}</option>)}</select></label>
+        <label className="field form-wide">Description<textarea rows={3} value={description} maxLength={1500} onChange={(event) => setDescription(event.target.value)} /></label>
       </div>
       <label className="switch-label"><input type="checkbox" checked={available} onChange={(event) => setAvailable(event.target.checked)} /> Make listing orderable</label>
       {perfume && <label className="switch-label"><input type="checkbox" checked={published} onChange={(event) => setPublished(event.target.checked)} /> Show on the storefront</label>}
     </EditorSection>
     <EditorSection title="Shared photos and notes">
-      <PhotoEditor label="Listing photos" images={images} onChange={setImages} onStage={stagePhoto} />
+      <PhotoEditor label="Listing photos" images={images} required onChange={setImages} onStage={stagePhoto} />
       <TagField label="Occasions" value={occasions} onChange={setOccasions} suggestions={occasionSuggestions} />
       {notes.map((value, index) => <TagField key={index} label={noteLabels[index]} value={value} suggestions={noteSuggestions} onChange={(change) => setNotes(notes.map((current, i) => i === index ? change : current))} />)}
     </EditorSection>
@@ -204,18 +207,18 @@ export function AdminEditor({ perfume, catalog, busy, saveError, onSave, onCance
       {variants.map((variant) => <fieldset className="variant-editor" key={variant.id}>
         <legend>{variant.concentration} variant</legend>
         <div className="form-grid">
-          <label className="field">Concentration<select value={variant.concentration} disabled={perfume?.variants.some(({ id }) => id === variant.id)} onChange={(event) => patchVariant(variant.id, { concentration: event.target.value as Variant['concentration'] })}>
+          <label className="field"><RequiredLabel>Concentration</RequiredLabel><select required value={variant.concentration} disabled={perfume?.variants.some(({ id }) => id === variant.id)} onChange={(event) => patchVariant(variant.id, { concentration: event.target.value as Variant['concentration'] })}>
             {concentrations.map((value) => <option key={value} disabled={variants.some((other) => other.id !== variant.id && other.concentration === value)}>{value}</option>)}
           </select></label>
           {perfume?.variants.some(({ id }) => id === variant.id)
             ? <p className="notice">Remaining volume is managed in Inventory.</p>
-            : <label className="field">Initial stock (mL)<input required type="number" min="0" step="0.01" value={variant.stock} onChange={(event) => patchVariant(variant.id, { stock: event.target.value })} /></label>}
+            : <label className="field"><RequiredLabel>Initial stock (mL)</RequiredLabel><input required type="number" min="0" step="0.01" value={variant.stock} onChange={(event) => patchVariant(variant.id, { stock: event.target.value })} /></label>}
         </div>
         <label className="switch-label"><input type="checkbox" checked={variant.available} onChange={(event) => patchVariant(variant.id, { available: event.target.checked })} /> Make {variant.concentration} orderable</label>
         <div className="size-editor">
           {variant.sizes.map((size, index) => <div className="size-editor-row" key={size.id}>
-            <label className="field">Size (mL)<input required type="number" min=".01" step=".01" value={size.volume} onChange={(event) => patchVariant(variant.id, { sizes: variant.sizes.map((entry) => entry.id === size.id ? { ...entry, volume: event.target.value } : entry) })} /></label>
-            <label className="field">Price (₱)<input required type="number" min=".01" step=".01" value={size.price} onChange={(event) => patchVariant(variant.id, { sizes: variant.sizes.map((entry) => entry.id === size.id ? { ...entry, price: event.target.value } : entry) })} /></label>
+            <label className="field"><RequiredLabel>Size (mL)</RequiredLabel><input required type="number" min=".01" step=".01" value={size.volume} onChange={(event) => patchVariant(variant.id, { sizes: variant.sizes.map((entry) => entry.id === size.id ? { ...entry, volume: event.target.value } : entry) })} /></label>
+            <label className="field"><RequiredLabel>Price (₱)</RequiredLabel><input required type="number" min=".01" step=".01" value={size.price} onChange={(event) => patchVariant(variant.id, { sizes: variant.sizes.map((entry) => entry.id === size.id ? { ...entry, price: event.target.value } : entry) })} /></label>
             <button className="icon-button" type="button" aria-label={`Remove size ${index + 1} from ${variant.concentration}`} disabled={variant.sizes.length <= 1} onClick={() => patchVariant(variant.id, { sizes: variant.sizes.filter((entry) => entry.id !== size.id) })}><Trash2 size={16} /></button>
           </div>)}
           <button className="secondary-button" type="button" onClick={() => patchVariant(variant.id, { sizes: [...variant.sizes, { id: nextId(), volume: '', price: '' }] })}><Plus size={16} /> Add decant size</button>
