@@ -6,12 +6,20 @@ import woody from './assets/woody.jpg'
 export const profiles = ['Fresh', 'Citrus', 'Floral', 'Woody'] as const
 
 type Profile = (typeof profiles)[number]
-type Notes = readonly [top: string[], middle: string[], base: string[]]
+export type Notes = readonly [top: string[], middle: string[], base: string[]]
+export const concentrations = ['EDT', 'EDP', 'Extrait'] as const
+export const genders = ['Unisex', 'Feminine', 'Masculine'] as const
+export const defaultOccasions = ['Everyday', 'Office', 'Date night', 'Special occasion']
 
-type Variant = {
-  concentration: 'EDP' | 'EDT' | 'Extrait'
-  notes: Notes
-  sizes: { ml: number; centavos: number }[]
+export type Variant = {
+  id: string
+  concentration: (typeof concentrations)[number]
+  notes?: Notes
+  description?: string
+  images?: string[]
+  available: boolean
+  remainingMl: number
+  sizes: { id: string; ml: number; centavos: number }[]
 }
 
 export type Perfume = {
@@ -20,6 +28,8 @@ export type Perfume = {
   brand: string
   profile: Profile
   image: string
+  gallery?: string[]
+  notes?: Notes
   description: string
   gender: 'Unisex' | 'Feminine' | 'Masculine'
   occasions: string[]
@@ -27,11 +37,14 @@ export type Perfume = {
   variants: Variant[]
 }
 
-function variant(concentration: Variant['concentration'], notes: Notes, prices: number[]): Variant {
+function variant(concentration: Variant['concentration'], notes: Notes, prices: number[], remainingMl = 24): Variant {
   return {
+    id: concentration.toLowerCase(),
     concentration,
     notes,
-    sizes: prices.map((pesos, index) => ({ ml: [2, 5, 10][index], centavos: pesos * 100 })),
+    available: true,
+    remainingMl,
+    sizes: prices.map((pesos, index) => ({ id: String([2, 5, 10][index]), ml: [2, 5, 10][index], centavos: pesos * 100 })),
   }
 }
 
@@ -41,7 +54,7 @@ export const catalog: Perfume[] = [
     image: fresh, gender: 'Unisex', occasions: ['Everyday', 'Office'], available: true,
     description: 'Sea salt and bright bergamot settle into airy cypress and dry cedarwood.',
     variants: [
-      variant('EDP', [['Sea salt', 'Bergamot'], ['Cypress', 'Clary sage'], ['Cedarwood', 'Vetiver']], [149, 295, 520]),
+      variant('EDP', [['Sea salt', 'Bergamot'], ['Cypress', 'Clary sage'], ['Cedarwood', 'Vetiver']], [149, 295, 520], 7),
       variant('EDT', [['Bergamot', 'Lemon'], ['Cypress'], ['Cedarwood']], [129, 255, 430]),
     ],
   },
@@ -77,9 +90,24 @@ export const catalog: Perfume[] = [
   },
 ]
 
-export const noteOptions = [...new Set(catalog.flatMap((perfume) => (
-  perfume.variants.flatMap(({ notes }) => notes.flat())
-)))].sort()
+export const effectiveNotes = (perfume: Perfume, variant: Variant): Notes => variant.notes ?? perfume.notes ?? [[], [], []]
+
+export const volumeUnits = (ml: number) => Math.round(ml * 100)
+
+export function isOrderable(perfume: Perfume, variant: Variant) {
+  return perfume.available && variant.available && variant.sizes.some(({ ml }) => ml <= variant.remainingMl)
+}
+
+export function startingPrice(variants: Variant[]) {
+  return Math.min(...variants.flatMap(({ sizes, remainingMl }) => sizes
+    .filter(({ ml }) => ml <= remainingMl)
+    .map(({ centavos }) => centavos)))
+}
+
+export const samplePhotos = [
+  { name: 'Blue glass', image: fresh }, { name: 'Warm stone', image: citrus },
+  { name: 'Soft blush', image: floral }, { name: 'Amber shadow', image: woody },
+]
 
 export const lowestPrice = (variants: Perfume['variants']) => Math.min(
   ...variants.flatMap(({ sizes }) => sizes.map(({ centavos }) => centavos)),
