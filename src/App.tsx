@@ -4,6 +4,7 @@ import { CartPage } from './CartPage'
 import { CatalogHome } from './CatalogHome'
 import { CheckoutPage } from './CheckoutPage'
 import { ProductPage } from './ProductPage'
+import { StorefrontLinks } from './StorefrontLinks'
 import { Navigation, RouteLink } from './navigation'
 import type { StorefrontPerfume } from './catalog'
 import { additionalQuantity, cartStorageKey, findItem, itemId, readCart, reviewCart } from './cart'
@@ -194,7 +195,10 @@ export function App() {
     {page}
     <footer className="site-footer">
       <div className="site-container footer-inner">
-        <span>Coast Perfumery Manila</span>
+        <div className="footer-brand">
+          <span>Coast Perfumery Manila</span>
+          <StorefrontLinks group="social" />
+        </div>
         <div className="footer-links"><RouteLink to="/#fragrances">Browse fragrances</RouteLink><RouteLink to="/admin/login">Staff sign-in</RouteLink></div>
       </div>
     </footer>
