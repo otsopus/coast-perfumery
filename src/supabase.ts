@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import type { Notes, Perfume, StorefrontPerfume, Variant } from './catalog'
+import type { CartLimit, CartRequestLine } from './cart'
 
 const url = import.meta.env.VITE_SUPABASE_URL?.trim()
 const publishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY?.trim()
@@ -30,6 +31,10 @@ type Database = {
     Views: Record<never, never>
     Functions: {
       get_storefront_catalog: { Args: Record<never, never>; Returns: CatalogListing[] }
+      validate_storefront_cart: {
+        Args: { cart_lines: CartRequestLine[]; selected_perfume_id: string | null }
+        Returns: { catalog: CatalogListing[]; limits: CartLimit[] }
+      }
       staff_catalog: { Args: Record<never, never>; Returns: StaffCatalog }
       staff_save_listing: { Args: { listing: StaffListingDraft; expected_revision: number | null }; Returns: string[] }
       staff_set_availability: {

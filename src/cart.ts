@@ -1,11 +1,14 @@
-import { volumeUnits } from './catalog'
-import type { StorefrontPerfume, StorefrontVariant } from './catalog'
+import type { StorefrontPerfume } from './catalog'
 
 export type ItemKey = { perfumeId: string; variantId: string; sizeId: string }
-export type CartLine = ItemKey & { quantity: number; quotedCentavos?: number }
+export type CartRequestLine = ItemKey & { quantity: number }
+export type CartLine = CartRequestLine & { quotedCentavos?: number }
+export type CartLimit = ItemKey & { maxQuantity: number }
+export type CartLimits = ReadonlyMap<string, number>
+export type CartStatus = 'loading' | 'ready' | 'error'
 export const cartStorageKey = 'coast-cart-v1'
 
-export const itemId = ({ perfumeId, variantId, sizeId }: ItemKey) => `${perfumeId}/${variantId}/${sizeId}`
+export const itemId = ({ perfumeId, variantId, sizeId }: ItemKey) => JSON.stringify([perfumeId, variantId, sizeId])
 
 export function findItem(catalog: StorefrontPerfume[], key: ItemKey) {
   const perfume = catalog.find(({ id }) => id === key.perfumeId)
@@ -35,38 +38,23 @@ export function readCart(): CartLine[] {
   }
 }
 
-function supportedVolume(variant: StorefrontVariant) {
-  // The largest volume supported by a single size is a safe lower bound for mixed sizes.
-  return Math.max(0, ...variant.sizes.map(({ ml, maxQuantity }) => volumeUnits(ml) * maxQuantity))
+export function additionalQuantity(limits: CartLimits | undefined, lines: CartLine[], key: ItemKey) {
+  const id = itemId(key)
+  const existing = lines.find((line) => itemId(line) === id)
+  return Math.max(0, (limits?.get(id) ?? 0) - (existing?.quantity ?? 0))
 }
 
-export function remainingFor(catalog: StorefrontPerfume[], lines: CartLine[], perfume: StorefrontPerfume, variant: StorefrontVariant, except?: ItemKey) {
-  if (!perfume.available || !variant.available) return 0
-  const used = lines.reduce((total, line) => {
-    if (line.perfumeId !== perfume.id || line.variantId !== variant.id || (except && itemId(line) === itemId(except))) return total
-    return total + line.quantity * volumeUnits(findItem(catalog, line)?.size.ml ?? 0)
-  }, 0)
-  return Math.max(0, supportedVolume(variant) - used) / 100
-}
-
-export const maximumQuantity = (availableMl: number, sizeMl: number) => Math.floor(volumeUnits(availableMl) / volumeUnits(sizeMl))
-
-export function reviewCart(catalog: StorefrontPerfume[], lines: CartLine[]) {
+export function reviewCart(catalog: StorefrontPerfume[], lines: CartLine[], limits?: CartLimits) {
   return lines.map((line) => {
     const item = findItem(catalog, line)
+    const maxQuantity = limits?.get(itemId(line)) ?? 0
     let issue = ''
     if (!item) issue = 'This perfume or decant size is no longer listed.'
     else if (!item.perfume.available || !item.variant.available) issue = 'This concentration is currently unavailable.'
     else if (item.size.maxQuantity === 0) issue = 'This decant size is currently unavailable.'
-    else {
-      const requested = lines.reduce((volume, other) => {
-        if (other.perfumeId !== line.perfumeId || other.variantId !== line.variantId) return volume
-        return volume + other.quantity * volumeUnits(findItem(catalog, other)?.size.ml ?? 0)
-      }, 0)
-      if (requested > supportedVolume(item.variant)) issue = 'Reduce the combined quantities for this concentration.'
-    }
+    else if (limits && line.quantity > maxQuantity) issue = 'Reduce the combined quantities for this concentration.'
     const priceChanged = !!item && line.quotedCentavos !== undefined && item.size.centavos !== line.quotedCentavos
-    return { line, item, issue, priceChanged }
+    return { line, item, issue, priceChanged, maxQuantity }
   })
 }
 
