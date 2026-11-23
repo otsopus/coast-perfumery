@@ -1,20 +1,11 @@
 import { useEffect, useState } from 'react'
-import { ArrowRight, ChevronDown, Droplets, Flower2, Leaf, Search, SlidersHorizontal, Sun } from 'lucide-react'
+import { ChevronDown, Droplets, Flower2, Leaf, Search, SlidersHorizontal, Sun } from 'lucide-react'
 import { concentrations, effectiveNotes, formatPrice, genders, isOrderable, profiles, startingPrice } from './catalog'
 import type { StorefrontPerfume } from './catalog'
 import { Modal } from './Modal'
-import { StorefrontLinks } from './StorefrontLinks'
 import { RouteLink } from './navigation'
-import coastalDecants from './assets/coastal-decants.jpg'
 
 const profileIcons = { Fresh: Droplets, Citrus: Sun, Floral: Flower2, Woody: Leaf }
-
-const orderSteps = [
-  { title: 'Choose your decants', description: 'Pick your fragrances and sizes, then add them to your cart.' },
-  { title: 'Add delivery details', description: 'Enter your contact and delivery details at checkout.' },
-  { title: 'Generate your summary', description: 'The website turns your cart and delivery details into an order summary.' },
-  { title: 'Send it on Messenger', description: 'Paste the summary or attach the order image in the shop’s chat. The shop confirms your order there.' },
-]
 
 function matchesChoice(params: URLSearchParams, key: string, candidates: string[]) {
   const choices = params.getAll(key)
@@ -45,7 +36,7 @@ function PerfumeCard({ perfume, variants, orderable, price }: {
       </div>
       <div className="card-copy">
         <p className="eyebrow">{perfume.brand}</p>
-        <h3>{perfume.name}</h3>
+        <h2>{perfume.name}</h2>
         <p className="card-concentration">{variants.map(({ concentration }) => concentration).join(' · ')}</p>
         <div className="card-bottom">
           <span>{orderable.length ? <>From <strong>{formatPrice(price)}</strong></> : 'Unavailable'}</span>
@@ -56,7 +47,7 @@ function PerfumeCard({ perfume, variants, orderable, price }: {
   )
 }
 
-export function CatalogHome({ catalog, status, onRetry }: {
+export function ShopPage({ catalog, status, onRetry }: {
   catalog: StorefrontPerfume[]
   status: 'loading' | 'error' | 'ready'
   onRetry: () => void
@@ -134,108 +125,74 @@ export function CatalogHome({ catalog, status, onRetry }: {
 
   return (
     <>
-      <main id="main-content">
-        <section className="hero" aria-labelledby="hero-title">
-          <div className="hero-copy">
-            <p className="eyebrow">Perfume decants</p>
-            <h1 id="hero-title"><span>Find your next</span> <span>signature scent.</span></h1>
-            <p className="hero-description">Explore fragrances in sample sizes. Try a few before choosing a full bottle.</p>
-            <a href="#fragrances" className="primary-button">Explore the catalog</a>
-            <StorefrontLinks group="marketplace" />
-          </div>
-          <img className="hero-photo" src={coastalDecants} alt="1, 2, 5, and 10 mL perfume decants arranged with a scallop shell, coral, and sea glass"
-            width="1536" height="1024" fetchPriority="high" />
-        </section>
-
-        <section className="ordering-guide" id="how-to-order" aria-labelledby="ordering-guide-title">
-          <div className="site-container">
-            <h2 id="ordering-guide-title">How to order</h2>
-            <ol className="order-steps" role="list">
-              {orderSteps.map(({ title, description }, index) => (
-                <li className="order-step" key={title}>
-                  <span className="order-step-number" aria-hidden="true">{index + 1}</span>
-                  <div>
-                    <h3>{title}</h3>
-                    <p>{description}</p>
-                  </div>
-                  {index < orderSteps.length - 1 && <ArrowRight className="order-step-arrow" size={17} aria-hidden="true" />}
-                </li>
-              ))}
-            </ol>
-          </div>
-        </section>
-
-        <section id="fragrances" className="catalog" aria-labelledby="catalog-title">
-          <div className="site-container catalog-tools">
-            <div className="catalog-heading">
-              <h2 id="catalog-title">Shop fragrances</h2>
-              <div className="catalog-controls">
-                <label className="search-box">
-                  <Search size={19} aria-hidden="true" />
-                  <span className="sr-only">Search by perfume or brand</span>
-                  <input type="search" value={query} placeholder="Perfume or brand" onChange={(event) => setParam('q', event.target.value)} />
-                </label>
-                <button type="button" className="filter-button" onClick={() => setFiltersOpen(true)} aria-haspopup="dialog">
-                  <SlidersHorizontal size={18} /> Filters{filterCount > 0 && <span className="filter-count">{filterCount}</span>}
-                </button>
-              </div>
-            </div>
-
-            <div className="profile-list flex flex-wrap gap-2" aria-label="Scent profiles" role="group">
-              <button type="button" className="chip" aria-pressed={!params.has('profile')} onClick={() => setParam('profile', '')}>All scents</button>
-              {profiles.map((profile) => {
-                const Icon = profileIcons[profile]
-                return (
-                  <button type="button" className="chip" aria-pressed={params.getAll('profile').includes(profile)} onClick={() => toggleParam('profile', profile)} key={profile}>
-                    <Icon size={16} aria-hidden="true" /> {profile}
-                  </button>
-                )
-              })}
-            </div>
-
-            <div className="catalog-toolbar">
-              <div className="result-info flex flex-wrap items-center gap-x-4 gap-y-1">
-                {status === 'ready' && <p role="status">{results.length} {results.length === 1 ? 'fragrance' : 'fragrances'}</p>}
-                {hasFilters && <button type="button" className="text-button" onClick={clearFilters}>Clear filters</button>}
-              </div>
-              <label className="sort-control">
-                <span className="sr-only">Sort fragrances</span>
-                <select value={sort} onChange={(event) => setParam('sort', event.target.value)}>
-                  <option value="">Available first</option>
-                  <option value="price-asc">Price · Low to high</option>
-                  <option value="price-desc">Price · High to low</option>
-                  <option value="name">Name · A to Z</option>
-                </select>
-                <ChevronDown size={16} aria-hidden="true" />
+      <main id="main-content" aria-labelledby="catalog-title">
+        <div className="site-container catalog-tools">
+          <div className="catalog-heading">
+            <h1 id="catalog-title">Shop fragrances</h1>
+            <div className="catalog-controls">
+              <label className="search-box">
+                <Search size={19} aria-hidden="true" />
+                <span className="sr-only">Search by perfume or brand</span>
+                <input type="search" value={query} placeholder="Perfume or brand" onChange={(event) => setParam('q', event.target.value)} />
               </label>
+              <button type="button" className="filter-button" onClick={() => setFiltersOpen(true)} aria-haspopup="dialog">
+                <SlidersHorizontal size={18} /> Filters{filterCount > 0 && <span className="filter-count">{filterCount}</span>}
+              </button>
             </div>
           </div>
 
-          <div className="catalog-results">
-            <div className="site-container">
-              {status === 'loading' ? (
-                <div className="empty-state" role="status"><p>Loading fragrances…</p></div>
-              ) : status === 'error' ? (
-                <div className="empty-state">
-                  <p role="alert">The fragrance catalog couldn't load.</p>
-                  <button type="button" className="secondary-button" onClick={onRetry}>Try again</button>
-                </div>
-              ) : results.length > 0 ? (
-                <div className="product-grid grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
-                  {results.map(({ perfume, variants, orderable, price }) => (
-                    <PerfumeCard key={perfume.id} perfume={perfume} variants={variants} orderable={orderable} price={price} />
-                  ))}
-                </div>
-              ) : (
-                <div className="empty-state">
-                  <h3>{catalog.length ? 'No fragrances found' : 'The catalog is empty'}</h3>
-                  <p>{catalog.length ? 'Try a different search or adjust your filters.' : 'Check back for new fragrances.'}</p>
-                  {hasFilters && <button type="button" className="primary-button" onClick={clearFilters}>Clear filters</button>}
-                </div>
-              )}
-            </div>
+          <div id="scent-profiles" className="profile-list flex flex-wrap gap-2" aria-label="Scent profiles" role="group" tabIndex={-1}>
+            <button type="button" className="chip" aria-pressed={!params.has('profile')} onClick={() => setParam('profile', '')}>All scents</button>
+            {profiles.map((profile) => {
+              const Icon = profileIcons[profile]
+              return (
+                <button type="button" className="chip" aria-pressed={params.getAll('profile').includes(profile)} onClick={() => toggleParam('profile', profile)} key={profile}>
+                  <Icon size={16} aria-hidden="true" /> {profile}
+                </button>
+              )
+            })}
           </div>
-        </section>
+
+          <div className="catalog-toolbar">
+            <div className="result-info flex flex-wrap items-center gap-x-4 gap-y-1">
+              {status === 'ready' && <p role="status">{results.length} {results.length === 1 ? 'fragrance' : 'fragrances'}</p>}
+              {hasFilters && <button type="button" className="text-button" onClick={clearFilters}>Clear filters</button>}
+            </div>
+            <label className="sort-control">
+              <span className="sr-only">Sort fragrances</span>
+              <select value={sort} onChange={(event) => setParam('sort', event.target.value)}>
+                <option value="">Available first</option>
+                <option value="price-asc">Price · Low to high</option>
+                <option value="price-desc">Price · High to low</option>
+                <option value="name">Name · A to Z</option>
+              </select>
+              <ChevronDown size={16} aria-hidden="true" />
+            </label>
+          </div>
+        </div>
+
+        <div className="site-container catalog-results">
+          {status === 'loading' ? (
+            <div className="empty-state" role="status"><p>Loading fragrances…</p></div>
+          ) : status === 'error' ? (
+            <div className="empty-state">
+              <p role="alert">The fragrance catalog couldn't load.</p>
+              <button type="button" className="secondary-button" onClick={onRetry}>Try again</button>
+            </div>
+          ) : results.length > 0 ? (
+            <div className="product-grid grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
+              {results.map(({ perfume, variants, orderable, price }) => (
+                <PerfumeCard key={perfume.id} perfume={perfume} variants={variants} orderable={orderable} price={price} />
+              ))}
+            </div>
+          ) : (
+            <div className="empty-state">
+              <h2>{catalog.length ? 'No fragrances found' : 'The catalog is empty'}</h2>
+              <p>{catalog.length ? 'Try a different search or adjust your filters.' : 'Check back for new fragrances.'}</p>
+              {hasFilters && <button type="button" className="primary-button" onClick={clearFilters}>Clear filters</button>}
+            </div>
+          )}
+        </div>
       </main>
       {filtersOpen && (
         <Modal labelId="filter-title" onClose={() => setFiltersOpen(false)} className="filter-modal">

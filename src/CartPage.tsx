@@ -71,7 +71,7 @@ export function Totals({ subtotal }: { subtotal: number }) {
 export function CartPage({ rows, status, onRetry, ...actions }: CartProps) {
   return (
     <main id="main-content" className="site-container page-frame">
-      <RouteLink className="back-link" to="/#fragrances">Continue shopping</RouteLink>
+      <RouteLink className="back-link" to="/shop">Continue shopping</RouteLink>
       <h1 className="page-title">Your cart</h1>
       {rows.length ? <div className="commerce-layout">
         <CartReview rows={rows} status={status} {...actions} />
@@ -86,7 +86,7 @@ export function CartPage({ rows, status, onRetry, ...actions }: CartProps) {
       </div> : <div className="empty-state">
         <ShoppingBag size={26} aria-hidden="true" />
         <h2>Your cart is empty</h2>
-        <RouteLink className="primary-button" to="/#fragrances">Browse fragrances</RouteLink>
+        <RouteLink className="primary-button" to="/shop">Browse fragrances</RouteLink>
       </div>}
     </main>
   )

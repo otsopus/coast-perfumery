@@ -208,7 +208,7 @@ export function CheckoutPage({ fields, onFields, onValidate, ...cart }: CartProp
             </section>}
             <aside className="panel"><h2>Order estimate</h2><Totals subtotal={subtotalFor(cart.rows)} /></aside>
           </div>
-        </div> : <div className="empty-state"><h2>Add a decant to get started</h2><RouteLink className="primary-button" to="/#fragrances">Browse fragrances</RouteLink></div>}
+        </div> : <div className="empty-state"><h2>Add a decant to get started</h2><RouteLink className="primary-button" to="/shop">Browse fragrances</RouteLink></div>}
       </>}
     </main>
   )
