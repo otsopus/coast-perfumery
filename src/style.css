@@ -56,6 +56,7 @@ a { color: inherit; }
 .landing-page {
   --ordering-guide-gap: clamp(28px, 4vw, 56px);
   --hero-fade-length: clamp(120px, 11vw, 160px);
+  --hero-fade-end: calc(100% - clamp(24px, 2.15vw, 36px));
   display: flow-root;
   background: linear-gradient(transparent 43%, #eaf3f8), var(--coastal-surface);
 }
@@ -73,11 +74,11 @@ a { color: inherit; }
   content: "";
   position: absolute;
   z-index: -2;
-  inset: 0 0 calc(-1 * (var(--ordering-guide-gap) + 36px));
+  inset: 0 0 calc(-1 * var(--ordering-guide-gap));
   background:
     radial-gradient(ellipse at 0 100%, #bfdfed 0, transparent 38%),
     radial-gradient(ellipse at 100% 47%, #d0e6f1 0, transparent 46%);
-  mask-image: linear-gradient(transparent, #000 28%, #000 calc(100% - var(--hero-fade-length)), transparent);
+  mask-image: linear-gradient(transparent, #000 28%, #000 calc(var(--hero-fade-end) - var(--hero-fade-length)), transparent var(--hero-fade-end));
   pointer-events: none;
 }
 .hero-copy {
@@ -91,11 +92,10 @@ a { color: inherit; }
 .hero-description { color: var(--ink); line-height: 1.55; max-width: 37ch; font-size: clamp(1rem, 1.42vw, 1.3rem); }
 .hero .primary-button { min-height: 54px; margin-top: clamp(26px, 4vw, 58px); padding-inline: 28px; font-size: 1.05rem; font-weight: 500; }
 .hero-waves {
-  --wave-fade-end: calc(100% - clamp(12px, 1.4vw, 20px));
   position: absolute;
   inset: 0 0 calc(-1 * var(--ordering-guide-gap));
   overflow: hidden;
-  mask-image: linear-gradient(#000 calc(var(--wave-fade-end) - var(--hero-fade-length)), transparent var(--wave-fade-end));
+  mask-image: linear-gradient(#000 calc(var(--hero-fade-end) - var(--hero-fade-length)), transparent var(--hero-fade-end));
   pointer-events: none;
 }
 .hero-waves::before, .hero-waves::after { content: ""; position: absolute; }
