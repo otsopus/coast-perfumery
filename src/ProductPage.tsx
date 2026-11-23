@@ -41,7 +41,7 @@ export function ProductPage({ perfume, lines, limits, status, onRetry, onAdd }: 
 
   return (
     <main id="main-content" className="site-container page-frame">
-      <RouteLink className="back-link" to="/#fragrances">Shop fragrances</RouteLink>
+      <RouteLink className="back-link" to="/shop">Shop fragrances</RouteLink>
       <div className="product-page">
         <div>
           <div className="product-visual">

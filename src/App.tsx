@@ -1,9 +1,9 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
-import { ShoppingBag } from 'lucide-react'
 import { CartPage } from './CartPage'
-import { CatalogHome } from './CatalogHome'
 import { CheckoutPage } from './CheckoutPage'
+import { LandingPage } from './LandingPage'
 import { ProductPage } from './ProductPage'
+import { ShopPage } from './ShopPage'
 import { StorefrontLinks } from './StorefrontLinks'
 import { Navigation, RouteLink } from './navigation'
 import type { StorefrontPerfume } from './catalog'
@@ -15,6 +15,22 @@ import logo from './assets/shop-logo.jpg'
 import coralStillLife from './assets/coral-still-life.png'
 
 const AdminWorkspace = lazy(() => import('./AdminWorkspace'))
+const catalogQueryKeys = ['q', 'sort', 'profile', 'availability', 'note', 'concentration', 'gender', 'occasion', 'maxPrice']
+
+function resolveUrl(to: string) {
+  const url = new URL(to, location.href)
+  const legacyCatalogLink = url.hash === '#fragrances' || url.hash === '#scent-profiles'
+    || (!url.hash && catalogQueryKeys.some((key) => url.searchParams.has(key)))
+  if (url.pathname === '/' && legacyCatalogLink) {
+    url.pathname = '/shop'
+    if (url.hash === '#fragrances') url.hash = ''
+  }
+  return url
+}
+
+function routePath(url: URL) {
+  return url.pathname.replace(/\/$/, '') || '/'
+}
 
 type CatalogState =
   | { status: 'loading' | 'error' }
@@ -24,7 +40,7 @@ type CartRequest = { lines: CartLine[]; path: string; version: number }
 type CartResult = { request: CartRequest; snapshot: CartSnapshot | null }
 
 export function App() {
-  const [path, setPath] = useState(() => location.pathname.replace(/\/$/, '') || '/')
+  const [path, setPath] = useState(() => routePath(resolveUrl(location.href)))
   const [catalogState, setCatalogState] = useState<CatalogState>({ status: 'loading' })
   const [catalogVersion, setCatalogVersion] = useState(0)
   const [lines, setLines] = useState(readCart)
@@ -32,7 +48,7 @@ export function App() {
   const [cartVersion, setCartVersion] = useState(0)
   const [fields, setFields] = useState(emptyCheckout)
   const catalog = catalogState.status === 'ready' ? catalogState.listings : []
-  const needsCatalog = path === '/' || path === '/cart' || path === '/checkout' || path.startsWith('/perfumes/')
+  const needsCatalog = path === '/shop' || path === '/cart' || path === '/checkout' || path.startsWith('/perfumes/')
   const count = lines.reduce((total, { quantity }) => total + quantity, 0)
   const productId = path.startsWith('/perfumes/') ? path.slice('/perfumes/'.length) : null
   const needsCartCheck = Boolean(productId || (lines.length && (path === '/cart' || path === '/checkout')))
@@ -44,11 +60,18 @@ export function App() {
   const perfume = (snapshot?.catalog ?? catalog).find(({ id }) => id === productId)
 
   useEffect(() => {
-    function onBack() {
-      setPath(location.pathname.replace(/\/$/, '') || '/')
+    function syncPath() {
+      const url = resolveUrl(location.href)
+      if (url.href !== location.href) window.history.replaceState(window.history.state, '', url)
+      setPath(routePath(url))
     }
-    window.addEventListener('popstate', onBack)
-    return () => window.removeEventListener('popstate', onBack)
+    syncPath()
+    const frame = requestAnimationFrame(() => document.getElementById(location.hash.slice(1))?.scrollIntoView())
+    window.addEventListener('popstate', syncPath)
+    return () => {
+      cancelAnimationFrame(frame)
+      window.removeEventListener('popstate', syncPath)
+    }
   }, [])
 
   useEffect(() => {
@@ -97,23 +120,24 @@ export function App() {
   }
 
   useEffect(() => {
-    const titles: Record<string, string> = { '/': 'Fragrance Decants', '/cart': 'Your Cart', '/checkout': 'Checkout', '/admin': 'Catalog Dashboard', '/admin/login': 'Staff Workspace' }
+    const titles: Record<string, string> = { '/': 'Fragrance Decants', '/shop': 'Shop Fragrances', '/cart': 'Your Cart', '/checkout': 'Checkout', '/admin': 'Catalog Dashboard', '/admin/login': 'Staff Workspace' }
     document.title = `${perfume?.name ?? titles[path] ?? 'Page Unavailable'} | Coast Perfumery Manila`
   }, [path, perfume?.name])
 
   function navigate(to: string) {
-    const destination = new URL(to, location.href)
-    const previous = location.pathname
-    if (previous === '/' && destination.pathname === '/' && !destination.search) destination.search = location.search
+    const destination = resolveUrl(to)
+    const nextPath = routePath(destination)
+    if (path === '/shop' && nextPath === '/shop' && !destination.search) destination.search = location.search
     if (destination.href !== location.href) window.history.pushState(null, '', destination)
-    setPath(destination.pathname.replace(/\/$/, '') || '/')
+    setPath(nextPath)
     requestAnimationFrame(() => {
       const section = destination.hash && document.getElementById(destination.hash.slice(1))
       if (section) {
         section.scrollIntoView()
+        section.focus({ preventScroll: true })
       } else {
         window.scrollTo({ top: 0, behavior: 'instant' })
-        if (previous !== destination.pathname) {
+        if (path !== nextPath) {
           const main = document.getElementById('main-content')
           main?.setAttribute('tabindex', '-1')
           main?.focus({ preventScroll: true })
@@ -156,7 +180,8 @@ export function App() {
   }
 
   let page
-  if (path === '/') page = <CatalogHome catalog={catalog} status={catalogState.status} onRetry={retryCatalog} />
+  if (path === '/') page = <LandingPage />
+  else if (path === '/shop') page = <ShopPage catalog={catalog} status={catalogState.status} onRetry={retryCatalog} />
   else if (needsCatalog && catalogState.status !== 'ready') page = <main id="main-content" className="site-container page-frame">
     <div className="empty-state">
       {catalogState.status === 'loading' ? <p role="status">Loading fragrances…</p> : <>
@@ -175,26 +200,24 @@ export function App() {
     <AdminWorkspace onCatalogChanged={retryCatalog} />
   </Suspense>
   else page = <main id="main-content" className="site-container page-frame">
-    <div className="empty-state"><h1 className="page-title">This page is unavailable</h1><RouteLink className="primary-button" to="/#fragrances">Browse fragrances</RouteLink></div>
+    <div className="empty-state"><h1 className="page-title">This page is unavailable</h1><RouteLink className="primary-button" to="/shop">Browse fragrances</RouteLink></div>
   </main>
 
   return <Navigation.Provider value={navigate}>
     <a className="skip-link" href="#main-content">Skip to content</a>
     <header className="site-header">
-      <div className="site-container header-inner">
+      <div className="header-inner">
         <RouteLink to="/" className="brand" aria-label="Coast Perfumery Manila home">
           <img src={logo} alt="" width="235" height="290" />
           <span className="brand-text"><strong>Coast</strong><span>Perfumery Manila</span></span>
         </RouteLink>
-        <nav className="header-actions" aria-label="Storefront">
-          <div className="header-links">
-            <RouteLink to="/#fragrances" className="header-link">Shop fragrances</RouteLink>
-            <RouteLink to="/#how-to-order" className="header-link">How to order</RouteLink>
-          </div>
-          <RouteLink to="/cart" className="header-cart" aria-label={`Cart, ${count} ${count === 1 ? 'item' : 'items'}`} aria-current={path === '/cart' ? 'page' : undefined}>
-            <ShoppingBag aria-hidden="true" size={19} /><span className="header-cart-text">Cart</span><span key={count} className="cart-count">{count}</span>
-          </RouteLink>
+        <nav className="header-links" aria-label="Storefront">
+          <RouteLink to="/shop" className="header-link" aria-current={path === '/shop' ? 'page' : undefined}>Shop</RouteLink>
+          <RouteLink to="/#how-to-order" className="header-link">How to order</RouteLink>
         </nav>
+        <RouteLink to="/cart" className="header-cart" aria-label={`Cart, ${count} ${count === 1 ? 'item' : 'items'}`} aria-current={path === '/cart' ? 'page' : undefined}>
+          Cart <span key={count} className="cart-count">({count})</span>
+        </RouteLink>
       </div>
     </header>
     {page}
@@ -205,7 +228,7 @@ export function App() {
           <StorefrontLinks group="social" />
         </div>
         <img className="footer-coral" src={coralStillLife} alt="" width="450" height="300" loading="lazy" />
-        <div className="footer-links"><RouteLink to="/#fragrances">Browse fragrances</RouteLink><RouteLink to="/admin/login">Staff sign-in</RouteLink></div>
+        <div className="footer-links"><RouteLink to="/shop">Browse fragrances</RouteLink><RouteLink to="/admin/login">Staff sign-in</RouteLink></div>
       </div>
     </footer>
   </Navigation.Provider>
